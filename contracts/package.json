@@ -1,0 +1,16 @@
+{
+  "name": "@whistlex/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "hardhat compile",
+    "test": "hardhat test",
+    "deploy": "hardhat run scripts/deploy.ts"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "hardhat": "^2.22.1",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.3.3"
+  }
+}
