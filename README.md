@@ -93,6 +93,4 @@ npx hardhat run scripts/deploy.ts --network localhost
 npm run dev
 ```
 
-## 📝 License
 
-MIT
