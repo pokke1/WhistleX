@@ -1,15 +1,20 @@
 import { ethers } from "ethers";
 import dotenv from "dotenv";
-import IntelPoolFactoryAbi from "../../contracts/IntelPoolFactory.json" assert { type: "json" };
-import IntelPoolAbi from "../../contracts/IntelPool.json" assert { type: "json" };
+import IntelPoolFactoryAbi from "../../contracts/IntelPoolFactory.json" with { type: "json" };
+import IntelPoolAbi from "../../contracts/IntelPool.json" with { type: "json" };
 import { supabase } from "../db/supabase.js";
 import { PoolRecord, ContributionRecord } from "../types/models.js";
 
 dotenv.config();
 
-const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
-
 export async function startIndexer(factoryAddress: string) {
+  const rpcUrl = process.env.RPC_URL;
+  if (!rpcUrl) {
+    console.warn("RPC_URL is not set; skipping indexer startup.");
+    return;
+  }
+
+  const provider = new ethers.JsonRpcProvider(rpcUrl);
   const factory = new ethers.Contract(factoryAddress, IntelPoolFactoryAbi.abi, provider);
 
   factory.on("PoolCreated", async (investigator, pool, threshold, minContributionForDecrypt, event) => {
@@ -23,14 +28,14 @@ export async function startIndexer(factoryAddress: string) {
     await supabase.from("pools").upsert(payload);
     console.log("Indexed PoolCreated", payload, event?.transactionHash);
 
-    attachPoolListeners(pool);
+    attachPoolListeners(pool, provider);
   });
 
   const existingPools = (await supabase.from("pools").select("id")).data || [];
-  existingPools.forEach(({ id }) => attachPoolListeners(id));
+  existingPools.forEach(({ id }) => attachPoolListeners(id, provider));
 }
 
-function attachPoolListeners(address: string) {
+function attachPoolListeners(address: string, provider: ethers.Provider) {
   const pool = new ethers.Contract(address, IntelPoolAbi.abi, provider);
 
   pool.on("Contributed", async (contributor, amount) => {

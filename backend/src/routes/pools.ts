@@ -1,10 +1,10 @@
-import express from "express";
+import express, { Request, Response } from "express";
 import { supabase } from "../db/supabase.js";
 import { buildCanonicalPolicy } from "../services/tacoPolicy.js";
 
 const router = express.Router();
 
-router.get("/", async (_req, res) => {
+router.get("/", async (_req: Request, res: Response) => {
   const { data, error } = await supabase.from("pools").select("*");
   if (error) {
     return res.status(500).json({ error: error.message });
@@ -12,7 +12,7 @@ router.get("/", async (_req, res) => {
   return res.json(data || []);
 });
 
-router.post("/", async (req, res) => {
+router.post("/", async (req: Request, res: Response) => {
   const { id, investigator, threshold, minContributionForDecrypt } = req.body;
   if (!id || !investigator || !threshold || !minContributionForDecrypt) {
     return res.status(400).json({ error: "id, investigator, threshold, minContributionForDecrypt are required" });
