@@ -7,9 +7,30 @@ export interface PoolPayload {
   minContributionForDecrypt: string;
 }
 
+export interface PolicyRequestPayload {
+  poolId: string;
+  minContributionForDecrypt: string;
+}
+
 export async function fetchPools() {
   const res = await fetch(`${backend}/pools`);
   if (!res.ok) throw new Error("failed to load pools");
+  return res.json();
+}
+
+export async function requestPolicyPreview(payload: PolicyRequestPayload) {
+  const res = await fetch(`${backend}/pools/policy`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) throw new Error("failed to generate TACo policy");
+  return res.json();
+}
+
+export async function fetchStoredPolicy(poolId: string) {
+  const res = await fetch(`${backend}/pools/${poolId}/policy`);
+  if (!res.ok) throw new Error("failed to load TACo policy");
   return res.json();
 }
 
@@ -23,7 +44,7 @@ export async function createPool(payload: PoolPayload) {
   return res.json();
 }
 
-export async function uploadIntel(body: { poolId: string; cid: string; dekCiphertext: string }) {
+export async function uploadIntel(body: { poolId: string; cid: string; dekCiphertext: string; policyId: string }) {
   const res = await fetch(`${backend}/intel`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
