@@ -1,9 +1,9 @@
-import express from "express";
+import express, { Request, Response } from "express";
 import { supabase } from "../db/supabase.js";
 
 const router = express.Router();
 
-router.post("/", async (req, res) => {
+router.post("/", async (req: Request, res: Response) => {
   const { poolId, cid, dekCiphertext } = req.body;
   if (!poolId || !cid || !dekCiphertext) {
     return res.status(400).json({ error: "poolId, cid and dekCiphertext are required" });

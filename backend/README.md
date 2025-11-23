@@ -10,4 +10,5 @@ npm install
 npm run dev
 ```
 
-Environment variables live in `.env` (see `.env.example`).
+Environment variables live in `.env` (see `.env.example`). The dev server fails fast with a clear error if
+`SUPABASE_URL` or `SUPABASE_ANON_KEY` are missing so you know configuration needs to be set before running.

@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Request, Response } from "express";
 import morgan from "morgan";
 import dotenv from "dotenv";
 import poolsRouter from "./routes/pools.js";
@@ -7,11 +7,13 @@ import { startIndexer } from "./services/indexer.js";
 
 dotenv.config();
 
+console.log("Starting backend server...");
+
 const app = express();
 app.use(express.json());
 app.use(morgan("dev"));
 
-app.get("/health", (_req, res) => res.json({ status: "ok" }));
+app.get("/health", (_req: Request, res: Response) => res.json({ status: "ok" }));
 app.use("/pools", poolsRouter);
 app.use("/intel", intelRouter);
 
