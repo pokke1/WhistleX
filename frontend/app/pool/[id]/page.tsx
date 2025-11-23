@@ -3,14 +3,14 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { fetchPools } from "../../../lib/api";
-import { describePolicy } from "../../../lib/tacoClient";
+import { TacoPolicy, describePolicy } from "../../../lib/tacoClient";
 
 interface Pool {
   id: string;
   investigator: string;
   threshold: string;
   minContributionForDecrypt: string;
-  policyId?: string;
+  policy?: TacoPolicy;
 }
 
 export default function PoolDetailPage() {
@@ -41,7 +41,7 @@ export default function PoolDetailPage() {
       <p>Investigator: {pool.investigator}</p>
       <p>Threshold: {pool.threshold} wei</p>
       <p>Contribution to decrypt: {pool.minContributionForDecrypt} wei</p>
-      <p className="text-sm text-gray-700">{describePolicy(pool.policyId as any)}</p>
+      <p className="text-sm text-gray-700 whitespace-pre-line">{describePolicy(pool.policy)}</p>
 
       <section className="space-y-2">
         <h2 className="text-xl font-semibold">Contributor actions</h2>
