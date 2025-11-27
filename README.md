@@ -71,26 +71,102 @@ Stores:
 
 ## 📦 Installation
 
-``` sh
+### Prerequisites
+
+- Node.js **22.x** (Hardhat 3 warns on Node 20)
+- `npm` 10+
+- Optional: a Base Sepolia RPC endpoint and funded deployer key for testnet deployments
+
+### Clone the repo
+
+```sh
 git clone https://github.com/YOUR_USERNAME/whistlex.git
 cd whistlex
 ```
 
 ## 🧭 Project Structure
 
-    contracts/
-    backend/
-    frontend/
-    shared/
-    supabase/
-    infra/
+    contracts/   # Hardhat contracts + deployment scripts
+    backend/     # Express API + indexer
+    frontend/    # Next.js app
+    shared/      # Shared TS types
+    supabase/    # SQL schema + migrations
+    infra/       # Infra tooling
 
-## 🧪 Local Development
+## 🧪 Local Development (localhost chain)
 
-``` sh
+1) **Install dependencies**
+
+```sh
+cd contracts && npm install
+cd ../backend && npm install
+cd ../frontend && npm install
+```
+
+2) **Start a local Hardhat node** (from `contracts/` so the config is picked up):
+
+```sh
+cd contracts
 npx hardhat node
+```
+
+3) **Deploy contracts to localhost** (in a separate shell, also from `contracts/`):
+
+```sh
+cd contracts
 npx hardhat run scripts/deploy.ts --network localhost
+```
+
+The script prints the deployed `IntelPoolFactory` address. Copy it for the backend env.
+
+4) **Configure backend env**
+
+Create `backend/.env` from `backend/.env.example` and set:
+
+```ini
+SUPABASE_URL=...              # your Supabase project URL
+SUPABASE_ANON_KEY=...         # anon key
+RPC_URL=http://127.0.0.1:8545 # Hardhat node URL
+FACTORY_ADDRESS=0x...         # value from deploy step
+PORT=4000                     # optional override
+```
+
+5) **Run backend**
+
+```sh
+cd backend
 npm run dev
 ```
+
+6) **Configure frontend env**
+
+Create `frontend/.env` from `frontend/.env.example` and set `NEXT_PUBLIC_BACKEND_URL` (default `http://localhost:4000`).
+
+7) **Run frontend**
+
+```sh
+cd frontend
+npm run dev
+```
+
+The app is now reachable at `http://localhost:3000` against the local contracts + backend.
+
+## 🌐 Base Sepolia Deployment (testnet)
+
+1) Export a funded deployer key and RPC URL before running Hardhat:
+
+```sh
+export BASE_SEPOLIA_RPC_URL=https://base-sepolia.example
+export DEPLOYER_KEY=0xyour_private_key
+```
+
+2) Deploy from `contracts/`:
+
+```sh
+cd contracts
+npx hardhat run scripts/deploy.ts --network baseSepolia
+```
+
+3) Update `backend/.env` `RPC_URL` to the Base Sepolia endpoint and `FACTORY_ADDRESS` to the deployed factory address. The frontend will reuse the backend API and on-chain config automatically.
 
 
