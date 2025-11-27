@@ -17,13 +17,15 @@ export async function startIndexer(factoryAddress: string) {
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const factory = new ethers.Contract(factoryAddress, IntelPoolFactoryAbi.abi, provider);
 
-  factory.on("PoolCreated", async (investigator, pool, threshold, minContributionForDecrypt, event) => {
+  factory.on("PoolCreated", async (investigator, pool, threshold, minContributionForDecrypt, deadline, ciphertext, event) => {
     const payload: PoolRecord = {
       id: pool,
       investigator,
       threshold: threshold.toString(),
       minContributionForDecrypt: minContributionForDecrypt.toString(),
-      factoryAddress: factoryAddress
+      factoryAddress: factoryAddress,
+      deadline: deadline.toString(),
+      ciphertext: ethers.hexlify(ciphertext)
     };
     await supabase.from("pools").upsert(payload);
     console.log("Indexed PoolCreated", payload, event?.transactionHash);

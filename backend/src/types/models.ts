@@ -5,6 +5,8 @@ export interface PoolRecord {
   minContributionForDecrypt: string;
   factoryAddress: string;
   policyId?: string;
+  deadline?: string;
+  ciphertext?: string;
 }
 
 export interface ContributionRecord {
@@ -17,6 +19,6 @@ export interface ContributionRecord {
 export interface IntelBlob {
   id: string;
   poolId: string;
-  cid: string;
-  dekCiphertext: string;
+  ciphertext: string;
+  messageKit: string;
 }

@@ -5,6 +5,8 @@ export interface PoolPayload {
   investigator: string;
   threshold: string;
   minContributionForDecrypt: string;
+  deadline: string;
+  ciphertext: string;
 }
 
 export async function fetchPools() {
@@ -23,7 +25,7 @@ export async function createPool(payload: PoolPayload) {
   return res.json();
 }
 
-export async function uploadIntel(body: { poolId: string; cid: string; dekCiphertext: string }) {
+export async function uploadIntel(body: { poolId: string; ciphertext: string; messageKit: string }) {
   const res = await fetch(`${backend}/intel`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

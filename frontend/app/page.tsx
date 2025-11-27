@@ -11,6 +11,8 @@ interface Pool {
   threshold: string;
   minContributionForDecrypt: string;
   policyId?: string;
+  deadline?: string;
+  ciphertext?: string;
 }
 
 export default function HomePage() {
@@ -52,8 +54,12 @@ export default function HomePage() {
                 <div>
                   <p className="font-semibold">Pool {pool.id}</p>
                   <p className="text-sm text-gray-700">Investigator: {pool.investigator}</p>
-                  <p className="text-sm text-gray-700">Threshold: {pool.threshold} wei</p>
-                  <p className="text-sm text-gray-700">Contribution to decrypt: {pool.minContributionForDecrypt} wei</p>
+                  <p className="text-sm text-gray-700">Threshold: {pool.threshold} USDC</p>
+                  <p className="text-sm text-gray-700">Contribution to decrypt: {pool.minContributionForDecrypt} USDC</p>
+                  {pool.deadline && (
+                    <p className="text-sm text-gray-700">Deadline: {new Date(Number(pool.deadline) * 1000).toLocaleString()}</p>
+                  )}
+                  {pool.ciphertext && <p className="text-xs text-gray-600 truncate">Ciphertext: {pool.ciphertext}</p>}
                   <p className="text-xs text-gray-600 mt-1">Policy: {describePolicy(pool.policyId as any)}</p>
                 </div>
                 <Link className="text-blue-600 underline" href={`/pool/${pool.id}`}>

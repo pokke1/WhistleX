@@ -4,10 +4,12 @@ export interface IntelPool {
   threshold: string;
   minContributionForDecrypt: string;
   policyId?: string;
+  deadline?: string;
+  ciphertext?: string;
 }
 
 export interface IntelUpload {
   poolId: string;
-  cid: string;
-  dekCiphertext: string;
+  ciphertext: string;
+  messageKit: string;
 }

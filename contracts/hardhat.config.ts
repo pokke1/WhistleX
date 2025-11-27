@@ -11,6 +11,13 @@ const config: HardhatUserConfig = {
       }
     }
   },
+  networks: {
+    baseSepolia: {
+      url: process.env.BASE_SEPOLIA_RPC_URL || "",
+      accounts: process.env.DEPLOYER_KEY ? [process.env.DEPLOYER_KEY] : undefined,
+      chainId: 84532
+    }
+  },
   paths: {
     sources: "./contracts",
     tests: "./test",

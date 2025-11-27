@@ -4,7 +4,9 @@ create table if not exists pools (
   threshold text not null,
   minContributionForDecrypt text not null,
   factoryAddress text,
-  policyId text
+  policyId text,
+  deadline text,
+  ciphertext text
 );
 
 create table if not exists contributions (
@@ -17,6 +19,6 @@ create table if not exists contributions (
 create table if not exists intel_blobs (
   id uuid default uuid_generate_v4() primary key,
   poolId text references pools(id),
-  cid text not null,
-  dekCiphertext text not null
+  ciphertext text not null,
+  messageKit text not null
 );
