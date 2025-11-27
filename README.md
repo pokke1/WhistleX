@@ -123,7 +123,7 @@ cd contracts
 npx hardhat run scripts/deploy.ts --network localhost
 ```
 
-The script prints the deployed `IntelPoolFactory` address. Copy it for the backend env.
+The script prints the deployed `IntelPoolFactory` address. Copy it for the backend env. On a fresh Hardhat localhost run, it will typically be `0x5FbDB2315678afecb367f032d93F642f64180aa3`, but always rely on the address printed by your own deploy run.
 
 4) **Configure backend env**
 
@@ -137,6 +137,8 @@ FACTORY_ADDRESS=0x...         # value from deploy step
 PORT=4000                     # optional override
 ```
 
+The backend uses `FACTORY_ADDRESS` for indexing only. The frontend cannot read this value; it must be exposed separately as `NEXT_PUBLIC_FACTORY_ADDRESS` because it needs the address in the browser when sending the `createPool` transaction.
+
 5) **Run backend**
 
 ```sh
@@ -146,7 +148,12 @@ npm run dev
 
 6) **Configure frontend env**
 
-Create `frontend/.env` from `frontend/.env.example` and set `NEXT_PUBLIC_BACKEND_URL` (default `http://localhost:4000`).
+Create `frontend/.env` from `frontend/.env.example` and set:
+
+```ini
+NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
+NEXT_PUBLIC_FACTORY_ADDRESS=0x... # same value you set for FACTORY_ADDRESS
+```
 
 7) **Run frontend**
 
