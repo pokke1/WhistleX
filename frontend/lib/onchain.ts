@@ -1,4 +1,4 @@
-import { BrowserProvider, Contract, Interface, getBytes, parseUnits } from "ethers";
+import { BigNumber, Contract, providers, utils } from "ethers";
 
 const factoryAbi = [
   "event PoolCreated(address indexed investigator, address pool, uint256 threshold, uint256 minContributionForDecrypt, uint256 deadline, bytes ciphertext)",
@@ -29,18 +29,18 @@ export async function createPoolOnchain(params: CreatePoolOnchainParams) {
     throw new Error("NEXT_PUBLIC_FACTORY_ADDRESS is not configured");
   }
 
-  const provider = new BrowserProvider(ethereum);
-  const signer = await provider.getSigner();
+  const provider = new providers.Web3Provider(ethereum);
+  const signer = provider.getSigner();
 
-  const threshold = parseUnits(params.threshold, 6);
-  const minContribution = parseUnits(params.minContributionForDecrypt, 6);
-  const ciphertext = getBytes(normalizeHex(params.ciphertext));
-  const deadline = BigInt(params.deadline);
+  const threshold = utils.parseUnits(params.threshold, 6);
+  const minContribution = utils.parseUnits(params.minContributionForDecrypt, 6);
+  const ciphertext = utils.arrayify(normalizeHex(params.ciphertext));
+  const deadline = BigNumber.from(params.deadline);
 
   const factory = new Contract(factoryAddress, factoryAbi, signer);
   const tx = await factory.createPool(threshold, minContribution, deadline, ciphertext);
   const receipt = await tx.wait();
-  const iface = new Interface(factoryAbi);
+  const iface = new utils.Interface(factoryAbi);
 
   let poolAddress = "";
   for (const log of receipt?.logs || []) {
@@ -57,7 +57,7 @@ export async function createPoolOnchain(params: CreatePoolOnchainParams) {
 
   if (!poolAddress) {
     const count = await factory.poolsCount();
-    poolAddress = await factory.allPools(count - 1n);
+    poolAddress = await factory.allPools(count.sub(1));
   }
 
   return { poolAddress, investigator: await signer.getAddress(), txHash: receipt?.hash };

@@ -101,7 +101,13 @@ cd whistlex
 cd contracts && npm install
 cd ../backend && npm install
 cd ../frontend && npm install
+# if you previously installed with an unpublished TACo version, clear old deps:
+# rm -rf node_modules package-lock.json && npm install
 ```
+
+The frontend is pinned to the published `@nucypher/taco@0.6.0` (with `ethers@^5.7.2`) so a plain `npm install` now succeeds without
+extra flags. Removing old `node_modules`/lockfiles avoids the `ETARGET` and peer-dependency errors you may have seen with
+`@nucypher/taco@^1.0.0`.
 
 2) **Start a local Hardhat node** (from `contracts/` so the config is picked up):
 

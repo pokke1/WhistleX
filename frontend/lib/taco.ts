@@ -1,4 +1,4 @@
-import { JsonRpcProvider, Wallet } from "ethers";
+import { providers, Wallet } from "ethers";
 
 interface EncryptWithTacoParams {
   privateKey: string;
@@ -39,7 +39,7 @@ export async function encryptWithTaco({ privateKey, poolAddress, minContribution
   const encrypt = taco.encrypt;
   const domains = taco.domains;
   const predefinedConditions = taco.conditions?.predefined;
-  const polygonProvider = new JsonRpcProvider(dkgRpcUrl || process.env.NEXT_PUBLIC_TACO_DKG_RPC_URL);
+  const polygonProvider = new providers.JsonRpcProvider(dkgRpcUrl || process.env.NEXT_PUBLIC_TACO_DKG_RPC_URL);
 
   if (!encrypt || !domains) {
     throw new Error("TACO SDK is not available");
