@@ -17,14 +17,13 @@ export default function CreatePoolPage() {
   const [threshold, setThreshold] = useState("0");
   const [minContribution, setMinContribution] = useState("0");
   const [ciphertext, setCiphertext] = useState("");
-  const [privateKey, setPrivateKey] = useState("");
   const [deadline, setDeadline] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [messageKit, setMessageKit] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setStatus("Submitting pool to Base Sepolia...");
+    setStatus("Submitting pool to Sepolia...");
     setMessageKit(null);
 
     const deadlineTimestamp = toUnixTimestamp(deadline);
@@ -47,7 +46,6 @@ export default function CreatePoolPage() {
       setStatus("Encrypting DEK with TACo...");
 
       const kit = await encryptWithTaco({
-        privateKey,
         poolAddress: onchain.poolAddress,
         minContributionForDecrypt: minContribution
       });
@@ -77,9 +75,13 @@ export default function CreatePoolPage() {
     <main className="p-8 space-y-4">
       <h1 className="text-2xl font-semibold">Investigator: create a TACo-protected Intel Pool</h1>
       <p className="text-sm text-gray-700 max-w-3xl">
-        This flow creates a pool on Base Sepolia, embeds the encrypted ciphertext into the transaction calldata, and uses TACo on
+        This flow creates a pool on Sepolia, embeds the encrypted ciphertext into the transaction calldata, and uses TACo on
         Polygon Amoy to encrypt the investigator private key. The backend only indexes the ciphertext and MessageKit; the private
         key never leaves the browser.
+      </p>
+      <p className="text-xs text-gray-600 max-w-3xl">
+        TACo encryption uses the shared Sepolia demo private key baked into the repo (see <code>shared/testnet.ts</code>). Replace it
+        before moving beyond testnet.
       </p>
       <form onSubmit={handleSubmit} className="space-y-3 max-w-3xl">
         <div className="grid grid-cols-2 gap-3">
@@ -126,18 +128,6 @@ export default function CreatePoolPage() {
             className="border rounded p-2 w-full min-h-[120px]"
             value={ciphertext}
             onChange={(e) => setCiphertext(e.target.value)}
-            placeholder="0x..."
-            required
-          />
-        </label>
-
-        <label className="block">
-          <span className="text-sm">Investigator private key (used as DEK for TACo)</span>
-          <input
-            className="border rounded p-2 w-full"
-            type="password"
-            value={privateKey}
-            onChange={(e) => setPrivateKey(e.target.value)}
             placeholder="0x..."
             required
           />

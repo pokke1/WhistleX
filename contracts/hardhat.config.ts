@@ -1,6 +1,12 @@
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 
+import { DEFAULT_POLYGON_AMOY_RPC_URL, TESTNET_PRIVATE_KEY } from "../shared/testnet";
+
+const amoyRpc =
+  process.env.AMOY_RPC_URL || process.env.POLYGON_RPC_URL || DEFAULT_POLYGON_AMOY_RPC_URL;
+const defaultDeployerKey = process.env.DEPLOYER_KEY || TESTNET_PRIVATE_KEY;
+
 const config: HardhatUserConfig = {
   solidity: {
     version: "0.8.21",
@@ -12,10 +18,10 @@ const config: HardhatUserConfig = {
     }
   },
   networks: {
-    baseSepolia: {
-      url: process.env.BASE_SEPOLIA_RPC_URL || "",
-      accounts: process.env.DEPLOYER_KEY ? [process.env.DEPLOYER_KEY] : undefined,
-      chainId: 84532
+    amoy: {
+      url: amoyRpc,
+      accounts: [defaultDeployerKey],
+      chainId: 80002
     }
   },
   paths: {
