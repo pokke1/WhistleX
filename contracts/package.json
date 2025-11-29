@@ -6,6 +6,7 @@
     "build": "hardhat compile",
     "test": "hardhat test",
     "deploy": "hardhat run scripts/deploy.ts",
+    "predeploy:amoy": "npm install",
     "deploy:amoy": "hardhat run --network amoy scripts/deploy-amoy.ts"
   },
   "devDependencies": {

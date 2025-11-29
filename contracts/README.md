@@ -27,4 +27,6 @@ cd contracts
 npm run deploy:amoy
 ```
 
+If you see `hardhat: command not found`, ensure dependencies are installed with `npm install` (the `deploy:amoy` script will attempt this automatically via its `predeploy:amoy` hook).
+
 The script deploys the `IntelPoolFactory` and creates an initial pool in one run. Copy the printed factory address into the frontend/backend environment files.
