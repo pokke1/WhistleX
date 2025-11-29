@@ -6,12 +6,15 @@
     "build": "hardhat compile",
     "test": "hardhat test",
     "deploy": "hardhat run scripts/deploy.ts",
-    "deploy:sepolia": "hardhat run --network sepolia scripts/deploy-sepolia.ts"
+    "deploy:amoy": "hardhat run --network amoy scripts/deploy-sepolia.ts"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
     "hardhat": "^2.22.1",
     "ts-node": "^10.9.1",
     "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3"
   }
 }

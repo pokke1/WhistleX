@@ -1,11 +1,11 @@
+import * as dotenv from 'dotenv'
+dotenv.config()
+
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 
-import { DEFAULT_SEPOLIA_RPC_URL, TESTNET_PRIVATE_KEY } from "../shared/testnet";
-
-const sepoliaRpc = process.env.SEPOLIA_RPC_URL || DEFAULT_SEPOLIA_RPC_URL;
-const baseSepoliaRpc = process.env.BASE_SEPOLIA_RPC_URL || sepoliaRpc;
-const defaultDeployerKey = process.env.DEPLOYER_KEY || TESTNET_PRIVATE_KEY;
+const defaultDeployerKey = process.env.DEPLOYER_KEY;
+const amoyRpc = process.env.AMOY_RPC_URL;
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -18,16 +18,12 @@ const config: HardhatUserConfig = {
     }
   },
   networks: {
-    sepolia: {
-      url: sepoliaRpc,
+    amoy: {
+      url: amoyRpc,
       accounts: [defaultDeployerKey],
-      chainId: 11155111
-    },
-    baseSepolia: {
-      url: baseSepoliaRpc,
-      accounts: [defaultDeployerKey],
-      chainId: 84532
+      chainId: 80002
     }
+
   },
   paths: {
     sources: "./contracts",

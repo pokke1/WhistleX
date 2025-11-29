@@ -1,6 +1,6 @@
 export const TESTNET_PRIVATE_KEY =
   // Hardhat default account 0, used as a shared demo key for Sepolia TACo flows.
-  "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+  "0x87689923f91e01933abee394cf3ff28c2f14d864ee58b08a347c5ecce880d23a";
 
 export const DEFAULT_SEPOLIA_RPC_URL = "https://sepolia.drpc.org";
 export const DEFAULT_POLYGON_AMOY_RPC_URL = "https://polygon-amoy.drpc.org";
