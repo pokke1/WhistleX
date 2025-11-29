@@ -2,12 +2,11 @@ import { providers, Wallet } from "ethers";
 
 import {
   DEFAULT_POLYGON_AMOY_RPC_URL,
-  DEFAULT_SEPOLIA_RPC_URL,
   DEFAULT_TACO_RITUAL_ID,
   TESTNET_PRIVATE_KEY
 } from "../../shared/testnet";
 
-const DEFAULT_CONDITION_CHAIN_ID = 11155111; // Sepolia
+const DEFAULT_CONDITION_CHAIN_ID = 80002; // Polygon Amoy
 
 interface EncryptWithTacoParams {
   privateKey?: string;
@@ -31,7 +30,10 @@ function resolveTacoConfig({
   const key = privateKey || process.env.NEXT_PUBLIC_TACO_PRIVATE_KEY || DEFAULT_TACO_PRIVATE_KEY;
   const dkg = dkgRpcUrl || process.env.NEXT_PUBLIC_TACO_DKG_RPC_URL || DEFAULT_POLYGON_AMOY_RPC_URL;
   const condition =
-    conditionRpcUrl || process.env.NEXT_PUBLIC_TACO_CONDITION_RPC_URL || process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL;
+    conditionRpcUrl ||
+    process.env.NEXT_PUBLIC_TACO_CONDITION_RPC_URL ||
+    process.env.NEXT_PUBLIC_AMOY_RPC_URL ||
+    DEFAULT_POLYGON_AMOY_RPC_URL;
   const conditionChain = conditionChainId || Number(process.env.NEXT_PUBLIC_TACO_CONDITION_CHAIN_ID) || DEFAULT_CONDITION_CHAIN_ID;
   const ritual = ritualId || Number(process.env.NEXT_PUBLIC_TACO_RITUAL_ID) || DEFAULT_TACO_RITUAL_ID;
 
@@ -97,9 +99,9 @@ export async function encryptWithTaco({
 
   await initialize();
 
-  const polygonProvider = new providers.JsonRpcProvider(dkg);
-  const sepoliaProvider = new providers.JsonRpcProvider(condition || DEFAULT_SEPOLIA_RPC_URL);
-  const encryptorWallet = new Wallet(key, sepoliaProvider);
+  const dkgProvider = new providers.JsonRpcProvider(dkg);
+  const conditionProvider = new providers.JsonRpcProvider(condition || DEFAULT_POLYGON_AMOY_RPC_URL);
+  const encryptorWallet = new Wallet(key, conditionProvider);
 
   const conditionTree = predefinedConditions
     ? new predefinedConditions.LogicalCondition({
@@ -125,7 +127,7 @@ export async function encryptWithTaco({
     : buildTacoCondition(poolAddress, minContributionForDecrypt, conditionChain);
 
   const kit = await encrypt(
-    polygonProvider,
+    dkgProvider,
     domains.TESTNET || domains.tapir,
     key,
     conditionTree,

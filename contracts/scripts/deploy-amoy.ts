@@ -13,7 +13,7 @@ async function main() {
   const network = await ethers.provider.getNetwork();
 
   console.log("Deploying contracts with account:", deployer.address);
-  console.log("Network:", network.name || "sepolia", "(chain id:", network.chainId, ")");
+  console.log("Network:", network.name || "polygon-amoy", "(chain id:", network.chainId, ")");
 
   const factory = await ethers.deployContract("IntelPoolFactory");
   await factory.waitForDeployment();

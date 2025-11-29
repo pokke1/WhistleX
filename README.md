@@ -75,7 +75,7 @@ Stores:
 
 - Node.js **22.x** (Hardhat 3 warns on Node 20)
 - `npm` 10+
-- Optional: a Base Sepolia RPC endpoint and funded deployer key for testnet deployments
+- Optional: a Polygon Amoy RPC endpoint and funded deployer key for testnet deployments
 
 ### Clone the repo
 
@@ -164,35 +164,37 @@ npm run dev
 
 The app is now reachable at `http://localhost:3000` against the local contracts + backend.
 
-## 🌐 Sepolia Deployment (shared test key)
+## 🌐 Polygon Amoy Deployment (shared test key)
 
-For end-to-end TACo + Sepolia testing, the repo now uses the same demo values as the provided CLI sample:
+For end-to-end TACo testing on Polygon Amoy, the repo now uses the same demo values as the provided CLI sample:
 
-- RPC: `https://sepolia.drpc.org`
+- RPC: `https://polygon-amoy.drpc.org`
 - DKG RPC: `https://polygon-amoy.drpc.org`
 - Ritual ID: `6`
 - Demo private key: Hardhat default account 0 (`0xac0974...ff80`, stored in `shared/testnet.ts`)
 
-Environment variables in `frontend/.env.example` and `backend/.env.example` are prefilled with these values. If you populate `.env` files, those overrides are used; if you leave them empty, the hardcoded Sepolia defaults remain in effect for fast testing.
+Environment variables in `frontend/.env.example` and `backend/.env.example` are prefilled with these values. If you populate `.env` files, those overrides are used; if you leave them empty, the hardcoded Polygon Amoy defaults remain in effect for fast testing.
 
 1) (Optional) Override the default RPC or key by exporting env vars or editing `.env` files:
 
 ```sh
-export SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/YOUR_PROJECT_ID
+export AMOY_RPC_URL=https://polygon-amoy.drpc.org
+export NEXT_PUBLIC_AMOY_RPC_URL=https://polygon-amoy.drpc.org
+export NEXT_PUBLIC_TACO_DKG_RPC_URL=https://polygon-amoy.drpc.org
 export NEXT_PUBLIC_TACO_PRIVATE_KEY=0xyour_own_test_key
 export DEPLOYER_KEY=0xyour_own_test_key # otherwise the bundled key is used
 ```
 
-2) Deploy factory + initial pool to Sepolia with the baked-in RPC/key (or your overrides):
+2) Deploy factory + initial pool to Polygon Amoy with the baked-in RPC/key (or your overrides):
 
 ```sh
 cd contracts
-npm run deploy:sepolia
+npm run deploy:amoy
 ```
 
 3) Point the backend and frontend at the deployed factory:
 
-- `backend/.env`: set `FACTORY_ADDRESS` to the factory address printed by the deploy script (RPC defaults to Sepolia unless you set `RPC_URL`).
+- `backend/.env`: set `FACTORY_ADDRESS` to the factory address printed by the deploy script (RPC defaults to Polygon Amoy unless you set `RPC_URL`).
 - `frontend/.env`: set `NEXT_PUBLIC_BACKEND_URL` to your backend and `NEXT_PUBLIC_FACTORY_ADDRESS` to the same factory address. The frontend automatically reuses the shared TACo private key from `shared/testnet.ts` when encrypting unless you override it via env vars.
 
 
