@@ -20,8 +20,7 @@ npm run deploy -- --network localhost
 
 ## Deploying to Sepolia
 
-A shared Sepolia deployer key lives in `../shared/testnet.ts` for testing and TACo integration. Fund it with Sepolia ETH or expo
-rt `DEPLOYER_KEY` to override. You can also set `SEPOLIA_RPC_URL` if you prefer a custom RPC endpoint.
+A shared Sepolia deployer key (Hardhat default account 0: `0xac0974...ff80`) lives in `../shared/testnet.ts` for testing and TACo integration. Fund it with Sepolia ETH or export `DEPLOYER_KEY` to override. You can also set `SEPOLIA_RPC_URL` if you prefer a custom RPC endpoint (defaults to `https://sepolia.drpc.org`).
 
 ```sh
 cd contracts

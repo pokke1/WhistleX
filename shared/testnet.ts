@@ -1,5 +1,7 @@
-export const DEFAULT_SEPOLIA_RPC_URL = "https://rpc.sepolia.org";
-
-// Shared testnet key for Sepolia deployments and TACo demos. Replace in production.
 export const TESTNET_PRIVATE_KEY =
-  "0x9d1c3b4154d07b26a2e8d38c5d7c9145f0c5368130f5e7cb52b4d138b94c4f0a";
+  // Hardhat default account 0, used as a shared demo key for Sepolia TACo flows.
+  "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+
+export const DEFAULT_SEPOLIA_RPC_URL = "https://sepolia.drpc.org";
+export const DEFAULT_POLYGON_AMOY_RPC_URL = "https://polygon-amoy.drpc.org";
+export const DEFAULT_TACO_RITUAL_ID = 6;

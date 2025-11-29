@@ -1,23 +1,53 @@
 import { providers, Wallet } from "ethers";
 
-import { TESTNET_PRIVATE_KEY } from "../../shared/testnet";
+import {
+  DEFAULT_POLYGON_AMOY_RPC_URL,
+  DEFAULT_SEPOLIA_RPC_URL,
+  DEFAULT_TACO_RITUAL_ID,
+  TESTNET_PRIVATE_KEY
+} from "../../shared/testnet";
+
+const DEFAULT_CONDITION_CHAIN_ID = 11155111; // Sepolia
 
 interface EncryptWithTacoParams {
   privateKey?: string;
   poolAddress: string;
   minContributionForDecrypt: string;
   dkgRpcUrl?: string;
+  conditionRpcUrl?: string;
+  conditionChainId?: number;
   ritualId?: number;
 }
 
 export const DEFAULT_TACO_PRIVATE_KEY = TESTNET_PRIVATE_KEY;
 
-export function buildTacoCondition(poolAddress: string, minContributionForDecrypt: string) {
+function resolveTacoConfig({
+  privateKey,
+  dkgRpcUrl,
+  conditionRpcUrl,
+  conditionChainId,
+  ritualId
+}: Partial<EncryptWithTacoParams>) {
+  const key = privateKey || process.env.NEXT_PUBLIC_TACO_PRIVATE_KEY || DEFAULT_TACO_PRIVATE_KEY;
+  const dkg = dkgRpcUrl || process.env.NEXT_PUBLIC_TACO_DKG_RPC_URL || DEFAULT_POLYGON_AMOY_RPC_URL;
+  const condition =
+    conditionRpcUrl || process.env.NEXT_PUBLIC_TACO_CONDITION_RPC_URL || process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL;
+  const conditionChain = conditionChainId || Number(process.env.NEXT_PUBLIC_TACO_CONDITION_CHAIN_ID) || DEFAULT_CONDITION_CHAIN_ID;
+  const ritual = ritualId || Number(process.env.NEXT_PUBLIC_TACO_RITUAL_ID) || DEFAULT_TACO_RITUAL_ID;
+
+  return { key, dkg, condition, conditionChain, ritual };
+}
+
+export function buildTacoCondition(
+  poolAddress: string,
+  minContributionForDecrypt: string,
+  conditionChainId: number = DEFAULT_CONDITION_CHAIN_ID
+) {
   return {
     and: [
       {
         contract: {
-          chain: "base",
+          chain: conditionChainId,
           address: poolAddress,
           function: "isUnlocked",
           args: [],
@@ -26,7 +56,7 @@ export function buildTacoCondition(poolAddress: string, minContributionForDecryp
       },
       {
         contract: {
-          chain: "base",
+          chain: conditionChainId,
           address: poolAddress,
           function: "contributionOf",
           args: [":userAddress"],
@@ -39,35 +69,51 @@ export function buildTacoCondition(poolAddress: string, minContributionForDecryp
 }
 
 export async function encryptWithTaco({
-  privateKey = DEFAULT_TACO_PRIVATE_KEY,
+  privateKey,
   poolAddress,
   minContributionForDecrypt,
   dkgRpcUrl,
-  ritualId = 6
+  conditionRpcUrl,
+  conditionChainId,
+  ritualId
 }: EncryptWithTacoParams) {
   const taco = (await import("@nucypher/taco")) as any;
+  const initialize = taco.initialize;
   const encrypt = taco.encrypt;
   const domains = taco.domains;
   const predefinedConditions = taco.conditions?.predefined;
-  const polygonProvider = new providers.JsonRpcProvider(dkgRpcUrl || process.env.NEXT_PUBLIC_TACO_DKG_RPC_URL);
 
-  if (!encrypt || !domains) {
+  if (!initialize || !encrypt || !domains) {
     throw new Error("TACO SDK is not available");
   }
 
-  const condition = predefinedConditions
+  const { key, dkg, condition, conditionChain, ritual } = resolveTacoConfig({
+    privateKey,
+    dkgRpcUrl,
+    conditionRpcUrl,
+    conditionChainId,
+    ritualId
+  });
+
+  await initialize();
+
+  const polygonProvider = new providers.JsonRpcProvider(dkg);
+  const sepoliaProvider = new providers.JsonRpcProvider(condition || DEFAULT_SEPOLIA_RPC_URL);
+  const encryptorWallet = new Wallet(key, sepoliaProvider);
+
+  const conditionTree = predefinedConditions
     ? new predefinedConditions.LogicalCondition({
         operator: "and",
         conditions: [
           new predefinedConditions.ContractCondition({
-            chain: "base",
+            chain: conditionChain,
             address: poolAddress,
             function: "isUnlocked",
             args: [],
             returnValue: true
           }),
           new predefinedConditions.ContractCondition({
-            chain: "base",
+            chain: conditionChain,
             address: poolAddress,
             function: "contributionOf",
             args: [":userAddress"],
@@ -76,16 +122,14 @@ export async function encryptWithTaco({
           })
         ]
       })
-    : buildTacoCondition(poolAddress, minContributionForDecrypt);
-
-  const encryptorWallet = new Wallet(privateKey, polygonProvider);
+    : buildTacoCondition(poolAddress, minContributionForDecrypt, conditionChain);
 
   const kit = await encrypt(
     polygonProvider,
     domains.TESTNET || domains.tapir,
-    privateKey,
-    condition,
-    ritualId,
+    key,
+    conditionTree,
+    ritual,
     encryptorWallet
   );
 

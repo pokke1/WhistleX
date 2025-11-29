@@ -4,6 +4,7 @@ import "@nomicfoundation/hardhat-toolbox";
 import { DEFAULT_SEPOLIA_RPC_URL, TESTNET_PRIVATE_KEY } from "../shared/testnet";
 
 const sepoliaRpc = process.env.SEPOLIA_RPC_URL || DEFAULT_SEPOLIA_RPC_URL;
+const baseSepoliaRpc = process.env.BASE_SEPOLIA_RPC_URL || sepoliaRpc;
 const defaultDeployerKey = process.env.DEPLOYER_KEY || TESTNET_PRIVATE_KEY;
 
 const config: HardhatUserConfig = {
@@ -23,7 +24,7 @@ const config: HardhatUserConfig = {
       chainId: 11155111
     },
     baseSepolia: {
-      url: process.env.BASE_SEPOLIA_RPC_URL || sepoliaRpc,
+      url: baseSepoliaRpc,
       accounts: [defaultDeployerKey],
       chainId: 84532
     }

@@ -5,10 +5,12 @@ import IntelPoolAbi from "../../contracts/IntelPool.json" with { type: "json" };
 import { supabase } from "../db/supabase.js";
 import { PoolRecord, ContributionRecord } from "../types/models.js";
 
+const DEFAULT_SEPOLIA_RPC_URL = "https://sepolia.drpc.org";
+
 dotenv.config();
 
 export async function startIndexer(factoryAddress: string) {
-  const rpcUrl = process.env.RPC_URL;
+  const rpcUrl = process.env.RPC_URL || process.env.SEPOLIA_RPC_URL || DEFAULT_SEPOLIA_RPC_URL;
   if (!rpcUrl) {
     console.warn("RPC_URL is not set; skipping indexer startup.");
     return;
