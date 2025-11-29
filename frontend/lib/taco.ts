@@ -1,12 +1,16 @@
 import { providers, Wallet } from "ethers";
 
+import { TESTNET_PRIVATE_KEY } from "../../shared/testnet";
+
 interface EncryptWithTacoParams {
-  privateKey: string;
+  privateKey?: string;
   poolAddress: string;
   minContributionForDecrypt: string;
   dkgRpcUrl?: string;
   ritualId?: number;
 }
+
+export const DEFAULT_TACO_PRIVATE_KEY = TESTNET_PRIVATE_KEY;
 
 export function buildTacoCondition(poolAddress: string, minContributionForDecrypt: string) {
   return {
@@ -34,7 +38,13 @@ export function buildTacoCondition(poolAddress: string, minContributionForDecryp
   };
 }
 
-export async function encryptWithTaco({ privateKey, poolAddress, minContributionForDecrypt, dkgRpcUrl, ritualId = 6 }: EncryptWithTacoParams) {
+export async function encryptWithTaco({
+  privateKey = DEFAULT_TACO_PRIVATE_KEY,
+  poolAddress,
+  minContributionForDecrypt,
+  dkgRpcUrl,
+  ritualId = 6
+}: EncryptWithTacoParams) {
   const taco = (await import("@nucypher/taco")) as any;
   const encrypt = taco.encrypt;
   const domains = taco.domains;
