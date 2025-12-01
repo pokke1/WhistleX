@@ -44,18 +44,9 @@ export default function CreatePoolPage() {
 
       setPoolId(onchain.poolAddress);
       setInvestigator(onchain.investigator);
-      setStatus("Encrypting DEK with TACo...");
+      setStatus("Recording pool metadata and policy...");
 
-      const kit = await encryptWithTaco({
-        privateKey,
-        poolAddress: onchain.poolAddress,
-        minContributionForDecrypt: minContribution
-      });
-
-      const policy = buildTacoCondition(onchain.poolAddress, minContribution);
-      setMessageKit(kit);
-
-      await createPool({
+      const poolRecord = await createPool({
         id: onchain.poolAddress,
         investigator: onchain.investigator,
         threshold,
@@ -63,6 +54,19 @@ export default function CreatePoolPage() {
         deadline: deadlineTimestamp,
         ciphertext: normalizedCipher
       });
+
+      const policy = poolRecord.policy || buildTacoCondition(onchain.poolAddress, minContribution);
+      setStatus("Encrypting ciphertext with TACo...");
+
+      const kit = await encryptWithTaco({
+        privateKey,
+        poolAddress: onchain.poolAddress,
+        minContributionForDecrypt: minContribution,
+        policy,
+        secretMessageHex: normalizedCipher
+      });
+
+      setMessageKit(kit);
 
       await uploadIntel({ poolId: onchain.poolAddress, ciphertext: normalizedCipher, messageKit: kit });
 

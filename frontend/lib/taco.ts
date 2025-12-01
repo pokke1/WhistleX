@@ -1,4 +1,6 @@
 import { providers, Wallet } from "ethers";
+import { normalizeHex } from "./onchain";
+import { TacoPolicy } from "./tacoClient";
 
 interface EncryptWithTacoParams {
   privateKey: string;
@@ -6,6 +8,35 @@ interface EncryptWithTacoParams {
   minContributionForDecrypt: string;
   dkgRpcUrl?: string;
   ritualId?: number;
+  policy?: TacoPolicy | string;
+  secretMessageHex: string;
+}
+
+function parsePolicy(policy?: TacoPolicy | string): TacoPolicy | undefined {
+  if (!policy) return undefined;
+  return typeof policy === "string" ? (JSON.parse(policy) as TacoPolicy) : policy;
+}
+
+function buildPredefinedCondition(policy: TacoPolicy, predefinedConditions: any) {
+  if (!predefinedConditions) return policy;
+
+  const clauses = policy.and || [];
+  const contractConditions = clauses.map((clause) => {
+    return new predefinedConditions.ContractCondition({
+      chain: clause.contract.chain,
+      address: clause.contract.address,
+      function: clause.contract.function,
+      args: clause.contract.args,
+      comparator: clause.contract.comparator,
+      value: clause.contract.value,
+      returnValue: clause.contract.returnValue
+    });
+  });
+
+  return new predefinedConditions.LogicalCondition({
+    operator: "and",
+    conditions: contractConditions
+  });
 }
 
 export function buildTacoCondition(poolAddress: string, minContributionForDecrypt: string) {
@@ -34,8 +65,20 @@ export function buildTacoCondition(poolAddress: string, minContributionForDecryp
   };
 }
 
-export async function encryptWithTaco({ privateKey, poolAddress, minContributionForDecrypt, dkgRpcUrl, ritualId = 6 }: EncryptWithTacoParams) {
+export async function encryptWithTaco({
+  privateKey,
+  poolAddress,
+  minContributionForDecrypt,
+  dkgRpcUrl,
+  ritualId = 6,
+  policy,
+  secretMessageHex
+}: EncryptWithTacoParams) {
   const taco = (await import("@nucypher/taco")) as any;
+  if (taco.initialize) {
+    await taco.initialize();
+  }
+
   const encrypt = taco.encrypt;
   const domains = taco.domains;
   const predefinedConditions = taco.conditions?.predefined;
@@ -45,35 +88,39 @@ export async function encryptWithTaco({ privateKey, poolAddress, minContribution
     throw new Error("TACO SDK is not available");
   }
 
-  const condition = predefinedConditions
-    ? new predefinedConditions.LogicalCondition({
-        operator: "and",
-        conditions: [
-          new predefinedConditions.ContractCondition({
-            chain: "base",
-            address: poolAddress,
-            function: "isUnlocked",
-            args: [],
-            returnValue: true
-          }),
-          new predefinedConditions.ContractCondition({
-            chain: "base",
-            address: poolAddress,
-            function: "contributionOf",
-            args: [":userAddress"],
-            comparator: ">=",
-            value: minContributionForDecrypt
-          })
-        ]
-      })
-    : buildTacoCondition(poolAddress, minContributionForDecrypt);
+  const parsedPolicy = parsePolicy(policy);
+  const condition = parsedPolicy
+    ? buildPredefinedCondition(parsedPolicy, predefinedConditions)
+    : predefinedConditions
+      ? new predefinedConditions.LogicalCondition({
+          operator: "and",
+          conditions: [
+            new predefinedConditions.ContractCondition({
+              chain: "base",
+              address: poolAddress,
+              function: "isUnlocked",
+              args: [],
+              returnValue: true
+            }),
+            new predefinedConditions.ContractCondition({
+              chain: "base",
+              address: poolAddress,
+              function: "contributionOf",
+              args: [":userAddress"],
+              comparator: ">=",
+              value: minContributionForDecrypt
+            })
+          ]
+        })
+      : buildTacoCondition(poolAddress, minContributionForDecrypt);
 
   const encryptorWallet = new Wallet(privateKey, polygonProvider);
+  const normalizedMessage = normalizeHex(secretMessageHex || "0xdeadbeef");
 
   const kit = await encrypt(
     polygonProvider,
     domains.TESTNET || domains.tapir,
-    privateKey,
+    normalizedMessage,
     condition,
     ritualId,
     encryptorWallet
