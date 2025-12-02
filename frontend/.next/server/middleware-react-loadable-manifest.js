@@ -1,0 +1,1 @@
+self.__REACT_LOADABLE_MANIFEST="{\"lib\\\\taco.ts -> @nucypher/taco\":{\"id\":\"lib\\\\taco.ts -> @nucypher/taco\",\"files\":[\"static/chunks/_app-pages-browser_node_modules_nucypher_taco_dist_es_index_js.js\"]}}"
