@@ -9,6 +9,11 @@ const DEFAULT_POLYGON_AMOY_RPC_URL = "https://polygon-amoy.drpc.org";
 
 dotenv.config();
 
+type PoolListenerState = {
+  contract: ethers.Contract;
+  lastSeenBlock: number;
+};
+
 export async function startIndexer(factoryAddress: string) {
   const rpcUrl = process.env.RPC_URL || process.env.AMOY_RPC_URL || DEFAULT_POLYGON_AMOY_RPC_URL;
   if (!rpcUrl) {
@@ -18,38 +23,88 @@ export async function startIndexer(factoryAddress: string) {
 
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const factory = new ethers.Contract(factoryAddress, IntelPoolFactoryAbi.abi, provider);
+  const poolListeners = new Map<string, PoolListenerState>();
 
-  factory.on("PoolCreated", async (investigator, pool, threshold, minContributionForDecrypt, deadline, ciphertext, event) => {
-    const payload: PoolRecord = {
-      id: pool,
-      investigator,
-      threshold: threshold.toString(),
-      minContributionForDecrypt: minContributionForDecrypt.toString(),
-      factoryAddress: factoryAddress,
-      deadline: deadline.toString(),
-      ciphertext: ethers.hexlify(ciphertext)
-    };
-    await supabase.from("pools").upsert(payload);
-    console.log("Indexed PoolCreated", payload, event?.transactionHash);
-
-    attachPoolListeners(pool, provider);
-  });
+  let lastFactoryBlock = await provider.getBlockNumber();
 
   const existingPools = (await supabase.from("pools").select("id")).data || [];
-  existingPools.forEach(({ id }) => attachPoolListeners(id, provider));
+  existingPools.forEach(({ id }) => {
+    poolListeners.set(id, {
+      contract: new ethers.Contract(id, IntelPoolAbi.abi, provider),
+      lastSeenBlock: lastFactoryBlock
+    });
+  });
+
+  provider.on("block", async (blockNumber: number) => {
+    await handleFactoryEvents(provider, factory, factoryAddress, poolListeners, blockNumber, lastFactoryBlock);
+    lastFactoryBlock = blockNumber;
+
+    for (const [address, state] of poolListeners.entries()) {
+      await handlePoolEvents(address, state, blockNumber);
+    }
+  });
 }
 
-function attachPoolListeners(address: string, provider: ethers.Provider) {
-  const pool = new ethers.Contract(address, IntelPoolAbi.abi, provider);
+async function handleFactoryEvents(
+  provider: ethers.Provider,
+  factory: ethers.Contract,
+  factoryAddress: string,
+  poolListeners: Map<string, PoolListenerState>,
+  currentBlock: number,
+  lastFactoryBlock: number
+) {
+  const fromBlock = lastFactoryBlock + 1;
+  if (fromBlock > currentBlock) return;
 
-  pool.on("Contributed", async (contributor, amount) => {
-    const payload: ContributionRecord = {
-      id: `${address}-${contributor}-${Date.now()}`,
-      contributor,
-      amount: amount.toString(),
-      poolId: address
-    };
-    await supabase.from("contributions").upsert(payload);
-    console.log("Indexed contribution", payload);
-  });
+  try {
+    const events = await factory.queryFilter(factory.filters.PoolCreated(), fromBlock, currentBlock);
+    for (const event of events) {
+      const [investigator, pool, threshold, minContributionForDecrypt, deadline, ciphertext] = event.args || [];
+      const payload: PoolRecord = {
+        id: pool,
+        investigator,
+        threshold: threshold.toString(),
+        minContributionForDecrypt: minContributionForDecrypt.toString(),
+        factoryAddress: factoryAddress,
+        deadline: deadline.toString(),
+        ciphertext: ethers.hexlify(ciphertext)
+      };
+
+      await supabase.from("pools").upsert(payload);
+      console.log("Indexed PoolCreated", payload, event?.transactionHash);
+
+      if (!poolListeners.has(pool)) {
+        poolListeners.set(pool, {
+          contract: new ethers.Contract(pool, IntelPoolAbi.abi, provider),
+          lastSeenBlock: currentBlock
+        });
+      }
+    }
+  } catch (error) {
+    console.error("Failed to query PoolCreated events", { fromBlock, currentBlock, error });
+  }
+}
+
+async function handlePoolEvents(address: string, state: PoolListenerState, currentBlock: number) {
+  const fromBlock = state.lastSeenBlock + 1;
+  if (fromBlock > currentBlock) return;
+
+  try {
+    const events = await state.contract.queryFilter(state.contract.filters.Contributed(), fromBlock, currentBlock);
+    for (const event of events) {
+      const [contributor, amount] = event.args || [];
+      const payload: ContributionRecord = {
+        id: `${address}-${contributor}-${event.blockNumber}-${event.logIndex}`,
+        contributor,
+        amount: amount.toString(),
+        poolId: address
+      };
+      await supabase.from("contributions").upsert(payload);
+      console.log("Indexed contribution", payload);
+    }
+
+    state.lastSeenBlock = currentBlock;
+  } catch (error) {
+    console.error("Failed to query contribution events", { address, fromBlock, currentBlock, error });
+  }
 }
