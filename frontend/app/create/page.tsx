@@ -24,7 +24,7 @@ export default function CreatePoolPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setStatus("Submitting pool to Base Sepolia...");
+    setStatus("Submitting pool to Polygon Amoy...");
     setMessageKit(null);
 
     const deadlineTimestamp = toUnixTimestamp(deadline);
@@ -81,7 +81,7 @@ export default function CreatePoolPage() {
     <main className="p-8 space-y-4">
       <h1 className="text-2xl font-semibold">Investigator: create a TACo-protected Intel Pool</h1>
       <p className="text-sm text-gray-700 max-w-3xl">
-        This flow creates a pool on Base Sepolia, embeds the encrypted ciphertext into the transaction calldata, and uses TACo on
+        This flow creates a pool on Polygon Amoy, embeds the encrypted ciphertext into the transaction calldata, and uses TACo on
         Polygon Amoy to encrypt the investigator private key. The backend only indexes the ciphertext and MessageKit; the private
         key never leaves the browser.
       </p>

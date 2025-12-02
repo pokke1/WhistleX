@@ -20,14 +20,14 @@ export async function createPoolOnchain(params: CreatePoolOnchainParams) {
     throw new Error("NEXT_PUBLIC_FACTORY_ADDRESS is not configured");
   }
 
-  const rpcUrl = process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL;
+  const rpcUrl = process.env.NEXT_PUBLIC_POLYGON_AMOY_RPC_URL;
   if (!rpcUrl) {
-    throw new Error("NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL is not configured");
+    throw new Error("NEXT_PUBLIC_POLYGON_AMOY_RPC_URL is not configured");
   }
 
-  const signerKey = process.env.NEXT_PUBLIC_BASE_SEPOLIA_SIGNER_KEY;
+  const signerKey = process.env.NEXT_PUBLIC_POLYGON_AMOY_SIGNER_KEY;
   if (!signerKey) {
-    throw new Error("NEXT_PUBLIC_BASE_SEPOLIA_SIGNER_KEY is not configured");
+    throw new Error("NEXT_PUBLIC_POLYGON_AMOY_SIGNER_KEY is not configured");
   }
 
   const provider = new providers.JsonRpcProvider(rpcUrl);

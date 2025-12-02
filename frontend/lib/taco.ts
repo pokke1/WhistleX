@@ -44,7 +44,7 @@ export function buildTacoCondition(poolAddress: string, minContributionForDecryp
     and: [
       {
         contract: {
-          chain: "base",
+          chain: "polygon-amoy",
           address: poolAddress,
           function: "isUnlocked",
           args: [],
@@ -53,7 +53,7 @@ export function buildTacoCondition(poolAddress: string, minContributionForDecryp
       },
       {
         contract: {
-          chain: "base",
+          chain: "polygon-amoy",
           address: poolAddress,
           function: "contributionOf",
           args: [":userAddress"],
@@ -96,14 +96,14 @@ export async function encryptWithTaco({
           operator: "and",
           conditions: [
             new predefinedConditions.ContractCondition({
-              chain: "base",
+              chain: "polygon-amoy",
               address: poolAddress,
               function: "isUnlocked",
               args: [],
               returnValue: true
             }),
             new predefinedConditions.ContractCondition({
-              chain: "base",
+              chain: "polygon-amoy",
               address: poolAddress,
               function: "contributionOf",
               args: [":userAddress"],
