@@ -1,4 +1,4 @@
-import { ethers } from "ethers";
+import { ethers, EventLog } from "ethers";
 import dotenv from "dotenv";
 import IntelPoolFactoryAbi from "../../contracts/IntelPoolFactory.json" with { type: "json" };
 import IntelPoolAbi from "../../contracts/IntelPool.json" with { type: "json" };
@@ -58,7 +58,10 @@ async function handleFactoryEvents(
 
   try {
     const events = await factory.queryFilter(factory.filters.PoolCreated(), fromBlock, currentBlock);
-    for (const event of events) {
+    for (const rawEvent of events) {
+      if (!("args" in rawEvent)) continue;
+
+      const event = rawEvent as EventLog;
       const [investigator, pool, threshold, minContributionForDecrypt, deadline, ciphertext] = event.args || [];
       const payload: PoolRecord = {
         id: pool,
@@ -91,10 +94,14 @@ async function handlePoolEvents(address: string, state: PoolListenerState, curre
 
   try {
     const events = await state.contract.queryFilter(state.contract.filters.Contributed(), fromBlock, currentBlock);
-    for (const event of events) {
+    for (const rawEvent of events) {
+      if (!("args" in rawEvent)) continue;
+
+      const event = rawEvent as EventLog;
       const [contributor, amount] = event.args || [];
+      const logIndex = (event as Partial<EventLog>).index ?? (event as any).logIndex;
       const payload: ContributionRecord = {
-        id: `${address}-${contributor}-${event.blockNumber}-${event.logIndex}`,
+        id: `${address}-${contributor}-${event.blockNumber}-${logIndex}`,
         contributor,
         amount: amount.toString(),
         poolId: address

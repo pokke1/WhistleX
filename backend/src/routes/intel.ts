@@ -18,7 +18,7 @@ router.post("/", async (req: Request, res: Response) => {
 });
 
 router.get("/:poolId", async (req: Request, res: Response) => {
-  const { poolId } = req.params;
+  const { poolId } = req.params as { poolId?: string };
   const { data, error } = await supabase
     .from("intel_blobs")
     .select("ciphertext, messageKit")
