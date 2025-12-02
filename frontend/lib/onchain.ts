@@ -1,4 +1,4 @@
-import { BigNumber, Contract, providers, utils } from "ethers";
+import { BigNumber, Contract, providers, utils, Wallet } from "ethers";
 
 const factoryAbi = [
   "event PoolCreated(address indexed investigator, address pool, uint256 threshold, uint256 minContributionForDecrypt, uint256 deadline, bytes ciphertext)",
@@ -15,22 +15,23 @@ export interface CreatePoolOnchainParams {
 }
 
 export async function createPoolOnchain(params: CreatePoolOnchainParams) {
-  if (typeof window === "undefined") {
-    throw new Error("window is not available");
-  }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ethereum = (window as any).ethereum;
-  if (!ethereum) {
-    throw new Error("Wallet provider not found");
-  }
-
   const factoryAddress = process.env.NEXT_PUBLIC_FACTORY_ADDRESS;
   if (!factoryAddress) {
     throw new Error("NEXT_PUBLIC_FACTORY_ADDRESS is not configured");
   }
 
-  const provider = new providers.Web3Provider(ethereum);
-  const signer = provider.getSigner();
+  const rpcUrl = process.env.NEXT_PUBLIC_POLYGON_AMOY_RPC_URL;
+  if (!rpcUrl) {
+    throw new Error("NEXT_PUBLIC_POLYGON_AMOY_RPC_URL is not configured");
+  }
+
+  const signerKey = process.env.NEXT_PUBLIC_POLYGON_AMOY_SIGNER_KEY;
+  if (!signerKey) {
+    throw new Error("NEXT_PUBLIC_POLYGON_AMOY_SIGNER_KEY is not configured");
+  }
+
+  const provider = new providers.JsonRpcProvider(rpcUrl);
+  const signer = new Wallet(signerKey, provider);
 
   const threshold = utils.parseUnits(params.threshold, 6);
   const minContribution = utils.parseUnits(params.minContributionForDecrypt, 6);

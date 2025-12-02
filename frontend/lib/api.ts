@@ -9,13 +9,18 @@ export interface PoolPayload {
   ciphertext: string;
 }
 
+export interface CreatePoolResponse extends PoolPayload {
+  // policy is constructed by the backend using canonical TACo rules
+  policy?: unknown;
+}
+
 export async function fetchPools() {
   const res = await fetch(`${backend}/pools`);
   if (!res.ok) throw new Error("failed to load pools");
   return res.json();
 }
 
-export async function createPool(payload: PoolPayload) {
+export async function createPool(payload: PoolPayload): Promise<CreatePoolResponse> {
   const res = await fetch(`${backend}/pools`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
