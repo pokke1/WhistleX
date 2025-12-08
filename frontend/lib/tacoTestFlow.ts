@@ -1,6 +1,6 @@
 import { Contract, providers, utils, Wallet, BigNumber } from "ethers";
 import { encryptWithTaco, decryptWithTaco, DEFAULT_TACO_PRIVATE_KEY } from "./taco";
-import { DEFAULT_POLYGON_AMOY_RPC_URL } from "../../shared/testnet";
+
 
 const factoryAbi = [
   "event PoolCreated(address indexed investigator, address pool, uint256 threshold, uint256 minContributionForDecrypt, uint256 deadline, bytes ciphertext)",
@@ -35,10 +35,13 @@ function resolveDeveloperKey() {
 }
 
 export async function runTacoTestFlow(): Promise<TacoTestResult> {
-  const rpcUrl = process.env.NEXT_PUBLIC_AMOY_RPC_URL || DEFAULT_POLYGON_AMOY_RPC_URL;
+  const rpcUrl = process.env.NEXT_PUBLIC_AMOY_RPC_URL || process.env.AMOY_RPC_URL;
   const factoryAddress = process.env.NEXT_PUBLIC_FACTORY_ADDRESS;
   if (!factoryAddress) {
     throw new Error("NEXT_PUBLIC_FACTORY_ADDRESS is not set");
+  }
+  if (!rpcUrl) {
+    throw new Error("AMOY RPC URL is not set");
   }
 
   const developerKey = resolveDeveloperKey();

@@ -1,4 +1,4 @@
 {
-  "/create/page": "app/create/page.js",
-  "/page": "app/page.js"
+  "/page": "app/page.js",
+  "/taco-test/page": "app/taco-test/page.js"
 }
