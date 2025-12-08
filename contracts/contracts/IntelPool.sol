@@ -9,6 +9,9 @@ contract IntelPool {
     address public immutable investigator;
     uint256 public immutable threshold;
     uint256 public immutable minContributionForDecrypt;
+    uint256 public immutable deadline;
+
+    bytes public ciphertext;
 
     uint256 public totalContributions;
     bool public unlocked;
@@ -22,20 +25,27 @@ contract IntelPool {
     constructor(
         address _investigator,
         uint256 _threshold,
-        uint256 _minContributionForDecrypt
+        uint256 _minContributionForDecrypt,
+        uint256 _deadline,
+        bytes memory _ciphertext
     ) {
         require(_investigator != address(0), "investigator required");
         require(_minContributionForDecrypt > 0, "min contribution required");
+        require(_deadline > block.timestamp, "deadline required");
+        require(_ciphertext.length > 0, "ciphertext required");
 
         investigator = _investigator;
         threshold = _threshold;
         minContributionForDecrypt = _minContributionForDecrypt;
+        deadline = _deadline;
+        ciphertext = _ciphertext;
     }
 
     /// @notice Contribute ETH towards unlocking the intel pool
     function contribute() external payable {
         require(!unlocked, "pool unlocked");
         require(msg.value > 0, "no value");
+        require(block.timestamp <= deadline, "past deadline");
 
         _contributions[msg.sender] += msg.value;
         totalContributions += msg.value;
@@ -70,5 +80,10 @@ contract IntelPool {
     /// @notice TACo helper: whether the pool is unlocked and caller meets contribution floor
     function canDecrypt(address contributor) external view returns (bool) {
         return unlocked && _contributions[contributor] >= minContributionForDecrypt;
+    }
+
+    /// @notice TACo helper: whether the pool is unlocked
+    function isUnlocked() external view returns (bool) {
+        return unlocked;
     }
 }

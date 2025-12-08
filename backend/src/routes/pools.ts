@@ -13,21 +13,23 @@ router.get("/", async (_req: Request, res: Response) => {
 });
 
 router.post("/", async (req: Request, res: Response) => {
-  const { id, investigator, threshold, minContributionForDecrypt } = req.body;
-  if (!id || !investigator || !threshold || !minContributionForDecrypt) {
-    return res.status(400).json({ error: "id, investigator, threshold, minContributionForDecrypt are required" });
+  const { id, investigator, threshold, minContributionForDecrypt, deadline, ciphertext } = req.body;
+  if (!id || !investigator || !threshold || !minContributionForDecrypt || !deadline || !ciphertext) {
+    return res
+      .status(400)
+      .json({ error: "id, investigator, threshold, minContributionForDecrypt, deadline, ciphertext are required" });
   }
 
-  const policy = buildCanonicalPolicy(id, BigInt(minContributionForDecrypt));
+  const policy = buildCanonicalPolicy(id, minContributionForDecrypt);
   const { error } = await supabase
     .from("pools")
-    .upsert({ id, investigator, threshold, minContributionForDecrypt, policyId: JSON.stringify(policy) });
+    .upsert({ id, investigator, threshold, minContributionForDecrypt, policyId: JSON.stringify(policy), deadline, ciphertext });
 
   if (error) {
     return res.status(500).json({ error: error.message });
   }
 
-  return res.json({ id, investigator, threshold, minContributionForDecrypt, policy });
+  return res.json({ id, investigator, threshold, minContributionForDecrypt, deadline, ciphertext, policy });
 });
 
 export default router;

@@ -1,13 +1,49 @@
-import { ethers } from "ethers";
-
 export interface TacoCondition {
-  poolAddress: string;
-  minContribution: string;
+  and: [
+    {
+      contract: {
+        chain: string;
+        address: string;
+        function: string;
+        args: unknown[];
+        returnValue: boolean;
+      };
+    },
+    {
+      contract: {
+        chain: string;
+        address: string;
+        function: string;
+        args: unknown[];
+        comparator: string;
+        value: string;
+      };
+    }
+  ];
 }
 
-export function buildCanonicalPolicy(poolAddress: string, minContributionWei: bigint): TacoCondition {
+export function buildCanonicalPolicy(poolAddress: string, minContribution: string): TacoCondition {
   return {
-    poolAddress,
-    minContribution: ethers.formatEther(minContributionWei)
+    and: [
+      {
+        contract: {
+          chain: "base",
+          address: poolAddress,
+          function: "isUnlocked",
+          args: [],
+          returnValue: true
+        }
+      },
+      {
+        contract: {
+          chain: "base",
+          address: poolAddress,
+          function: "contributionOf",
+          args: [":userAddress"],
+          comparator: ">=",
+          value: minContribution
+        }
+      }
+    ]
   };
 }
