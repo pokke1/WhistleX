@@ -17,4 +17,25 @@ router.post("/", async (req: Request, res: Response) => {
   return res.json({ poolId, ciphertext, messageKit });
 });
 
+router.get("/:poolId", async (req: Request, res: Response) => {
+  const { poolId } = req.params as { poolId?: string };
+  const { data, error } = await supabase
+    .from("intel_blobs")
+    .select("ciphertext, messageKit")
+    .eq("poolId", poolId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  if (!data) {
+    return res.status(404).json({ error: "No intel found for this pool" });
+  }
+
+  return res.json(data);
+});
+
 export default router;

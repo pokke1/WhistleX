@@ -34,3 +34,10 @@ export async function uploadIntel(body: { poolId: string; ciphertext: string; me
   if (!res.ok) throw new Error("failed to upload intel");
   return res.json();
 }
+
+export async function fetchIntel(poolId: string) {
+  const res = await fetch(`${backend}/intel/${poolId}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error("failed to fetch intel");
+  return res.json();
+}

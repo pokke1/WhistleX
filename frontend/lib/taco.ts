@@ -6,16 +6,17 @@ import {
   TESTNET_PRIVATE_KEY
 } from "../../shared/testnet";
 
-const DEFAULT_CONDITION_CHAIN_ID = 80002;
+const DEFAULT_CONDITION_CHAIN_ID = 80002; // Polygon Amoy
 
 interface EncryptWithTacoParams {
   privateKey?: string;
-  poolAddress: string;
-  minContributionForDecrypt: string;
+  poolAddress: string; // IntelPool address
+  minContributionForDecrypt: string; // kept for API compatibility, not used in TACo condition
   dkgRpcUrl?: string;
   conditionRpcUrl?: string;
   conditionChainId?: number;
   ritualId?: number;
+  messageKit?: string;
 }
 
 export const DEFAULT_TACO_PRIVATE_KEY = TESTNET_PRIVATE_KEY;
@@ -56,7 +57,32 @@ function resolveTacoConfig({
   return { key, dkg, condition, conditionChain, ritual };
 }
 
+function toHexString(bytes: Uint8Array) {
+  return Buffer.from(bytes).toString("hex");
+}
 
+function parseMessageKitBytes(serialized: string) {
+  const normalized = serialized.trim();
+
+  const fromHex = normalized.startsWith("0x") ? normalized.slice(2) : normalized;
+  try {
+    return Uint8Array.from(Buffer.from(fromHex, "hex"));
+  } catch (err) {
+    console.warn("Failed to parse messageKit as hex; trying base64", err);
+  }
+
+  try {
+    return Uint8Array.from(Buffer.from(normalized, "base64"));
+  } catch (err) {
+    console.warn("Failed to parse messageKit as base64", err);
+    throw new Error("Unsupported messageKit encoding; expected hex or base64");
+  }
+}
+
+/**
+ * Debug helper: JSON representation of the TACo condition.
+ * Uses IntelPool.canDecrypt(address) -> bool
+ */
 export function buildTacoCondition(
   poolAddress: string,
   _minContributionForDecrypt: string,
@@ -100,7 +126,7 @@ export function buildTacoCondition(
 export async function encryptWithTaco({
   privateKey,
   poolAddress,
-  minContributionForDecrypt,
+  minContributionForDecrypt, // not used in condition; enforced by canDecrypt()
   dkgRpcUrl,
   conditionRpcUrl,
   conditionChainId,
@@ -148,6 +174,7 @@ export async function encryptWithTaco({
   );
   const encryptorWallet = new Wallet(key, conditionProvider);
 
+  // ABI for IntelPool.canDecrypt(address) -> bool
   const canDecryptAbi: any = {
     name: "canDecrypt",
     type: "function",
@@ -168,6 +195,7 @@ export async function encryptWithTaco({
     ]
   };
 
+  // Single contract condition: IntelPool.canDecrypt(:userAddress) == true
   const conditionInstance = new ContractCondition({
     method: "canDecrypt",
     parameters: [":userAddress"],
@@ -181,6 +209,8 @@ export async function encryptWithTaco({
   });
 
   if (process.env.NODE_ENV !== "production") {
+    // conditionInstance should have toObj()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const obj = (conditionInstance as any).toObj?.();
     console.log(
       "[TACO] conditionInstance (toObj):",
@@ -198,6 +228,69 @@ export async function encryptWithTaco({
   );
 
   if (typeof kit === "string") return kit;
+  // Prefer a deterministic hex encoding that can be rehydrated for decrypt
+  if (kit?.toBytes) return toHexString(kit.toBytes());
   if (kit?.toString) return kit.toString();
   return JSON.stringify(kit);
+}
+
+export async function decryptWithTaco({
+  privateKey,
+  dkgRpcUrl,
+  conditionRpcUrl,
+  conditionChainId,
+  ritualId,
+  messageKit
+}: EncryptWithTacoParams & { messageKit: string }) {
+  if (!messageKit) {
+    throw new Error("decryptWithTaco: messageKit is required");
+  }
+
+  const taco = (await import("@nucypher/taco")) as any;
+  const initialize = taco.initialize;
+  const decrypt = taco.decrypt;
+  const domains = taco.domains;
+  const conditions = taco.conditions;
+  const ThresholdMessageKit = taco.ThresholdMessageKit;
+  const ConditionContext = conditions?.context?.ConditionContext;
+
+  if (!initialize || !decrypt || !domains || !ThresholdMessageKit || !ConditionContext) {
+    throw new Error(
+      `decryptWithTaco: missing TACo SDK exports. initialize=${!!initialize}, decrypt=${!!decrypt}, domains=${!!domains}, ` +
+        `ThresholdMessageKit=${!!ThresholdMessageKit}, ConditionContext=${!!ConditionContext}`
+    );
+  }
+
+  const { key, condition } = resolveTacoConfig({
+    privateKey,
+    conditionRpcUrl,
+    conditionChainId,
+    ritualId,
+    dkgRpcUrl
+  });
+
+  await initialize();
+
+  const conditionProvider = new providers.JsonRpcProvider(
+    condition || DEFAULT_POLYGON_AMOY_RPC_URL
+  );
+  const decryptorWallet = new Wallet(key, conditionProvider);
+
+  const kitBytes = parseMessageKitBytes(messageKit);
+  const kit = ThresholdMessageKit.fromBytes(kitBytes);
+
+  const context = ConditionContext.fromMessageKit(kit);
+  context.addCustomContextParameterValues({
+    userAddress: decryptorWallet.address
+  });
+
+  const decryptedBytes: Uint8Array = await decrypt(
+    conditionProvider,
+    domains.TESTNET || domains.tapir,
+    kit,
+    context,
+    domains.TESTNET?.porterUris
+  );
+
+  return new TextDecoder().decode(decryptedBytes);
 }
