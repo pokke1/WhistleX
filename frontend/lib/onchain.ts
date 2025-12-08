@@ -14,14 +14,17 @@ export interface CreatePoolOnchainParams {
   ciphertext: string;
 }
 
+const AMOY_CHAIN_ID_DEC = 80002;
+const AMOY_CHAIN_ID_HEX = '0x13882'; 
+
 export async function createPoolOnchain(params: CreatePoolOnchainParams) {
   if (typeof window === "undefined") {
     throw new Error("window is not available");
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const ethereum = (window as any).ethereum;
   if (!ethereum) {
-    throw new Error("Wallet provider not found");
+    throw new Error("Wallet provider not found. Please install MetaMask.");
   }
 
   const factoryAddress = process.env.NEXT_PUBLIC_FACTORY_ADDRESS;
@@ -30,8 +33,42 @@ export async function createPoolOnchain(params: CreatePoolOnchainParams) {
   }
 
   const provider = new providers.Web3Provider(ethereum);
-  const signer = provider.getSigner();
+  
+  const { chainId } = await provider.getNetwork();
 
+  if (chainId !== AMOY_CHAIN_ID_DEC) {
+    console.log("Incorrect network detected. Attempting to switch to Polygon Amoy...");
+
+    try {
+      await ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: AMOY_CHAIN_ID_HEX }],
+      });
+      
+    } catch (switchError: any) {
+      if (switchError.code === 4902) {
+        console.log("Amoy network not found in wallet, prompting to add it.");
+        await ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: AMOY_CHAIN_ID_HEX,
+            chainName: 'Polygon Amoy Testnet',
+            nativeCurrency: {
+                name: 'POL',
+                symbol: 'POL',
+                decimals: 18
+            },
+            rpcUrls: ['rpc-amoy.polygon.technology'],
+            blockExplorerUrls: ['amoy.polygonscan.com'],
+          }],
+        });
+      } else {
+        throw new Error(`Please connect to the Polygon Amoy Testnet in your wallet. Error code: ${switchError.code}`);
+      }
+    }
+  }
+  const signer = provider.getSigner();
+  
   const threshold = utils.parseUnits(params.threshold, 6);
   const minContribution = utils.parseUnits(params.minContributionForDecrypt, 6);
   const ciphertext = utils.arrayify(normalizeHex(params.ciphertext));
@@ -51,7 +88,6 @@ export async function createPoolOnchain(params: CreatePoolOnchainParams) {
         break;
       }
     } catch (err) {
-      // ignore unrelated logs
     }
   }
 
