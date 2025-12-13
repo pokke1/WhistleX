@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createPool, uploadIntel } from "../../lib/api";
 import { createPoolOnchain, normalizeHex } from "../../lib/onchain";
 import { buildTacoCondition, encryptWithTaco } from "../../lib/taco";
+import SymmetricEncryptor from "./SymmetricEncryptor";
 
 function toUnixTimestamp(input: string) {
   const value = Date.parse(input);
@@ -83,6 +84,13 @@ export default function CreatePoolPage() {
         TACo encryption uses the shared Sepolia demo private key baked into the repo (see <code>shared/testnet.ts</code>). Replace it
         before moving beyond testnet.
       </p>
+
+      <SymmetricEncryptor
+        onCiphertextReady={(hex) => {
+          setCiphertext(hex);
+          setStatus("Ciphertext prepared locally. Continue with pool creation.");
+        }}
+      />
       <form onSubmit={handleSubmit} className="space-y-3 max-w-3xl">
         <div className="grid grid-cols-2 gap-3">
           <label className="block">

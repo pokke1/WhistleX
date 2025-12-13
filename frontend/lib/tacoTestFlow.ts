@@ -58,12 +58,30 @@ export async function runTacoTestFlow(): Promise<TacoTestResult> {
   const deadline = BigNumber.from(Math.floor(Date.now() / 1000) + 60 * 60); // 1 hour from now
   const ciphertext = utils.hexlify(utils.toUtf8Bytes(`debug intel ${Date.now()}`));
 
+  // Ensure we meet Amoy minimum tip (>= 25 gwei) to avoid underpriced tx errors.
+  const feeData = await provider.getFeeData();
+  const minPriorityFee = utils.parseUnits("25", "gwei");
+  const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas?.lt(minPriorityFee)
+    ? minPriorityFee
+    : feeData.maxPriorityFeePerGas || minPriorityFee;
+  const baseForMax = feeData.lastBaseFeePerGas || feeData.gasPrice || minPriorityFee;
+  const maxFeePerGas = baseForMax.mul(2).add(maxPriorityFeePerGas); // cushion for spikes
+
   const factory = new Contract(factoryAddress, factoryAbi, wallet);
-  const createTx = await factory.createPool(threshold, minContribution, deadline, ciphertext);
-  const receipt = await createTx.wait();
+  const createTxRequest = await factory.populateTransaction.createPool(
+    threshold,
+    minContribution,
+    deadline,
+    ciphertext
+  );
+  const { receipt: factoryReceipt, hash: factoryTxHash } = await sendWithKnownHash(wallet, {
+    ...createTxRequest,
+    maxPriorityFeePerGas,
+    maxFeePerGas
+  });
 
   const iface = new utils.Interface(factoryAbi);
-  const poolAddress = receipt.logs
+  const poolAddress = factoryReceipt.logs
     .map((log) => {
       try {
         const parsed = iface.parseLog(log);
@@ -96,8 +114,12 @@ export async function runTacoTestFlow(): Promise<TacoTestResult> {
   }
 
   const pool = new Contract(poolAddress, intelPoolAbi, wallet);
-  const contributeTx = await pool.contribute({ value: threshold });
-  const contributeReceipt = await contributeTx.wait();
+  const contributeTxRequest = await pool.populateTransaction.contribute({ value: threshold });
+  const { receipt: contributeReceipt, hash: contributionTxHash } = await sendWithKnownHash(wallet, {
+    ...contributeTxRequest,
+    maxPriorityFeePerGas,
+    maxFeePerGas
+  });
 
   const unlockedAfterContribute = await pool.isUnlocked();
   const messageKitPlaintext = await decryptWithTaco({
@@ -114,8 +136,33 @@ export async function runTacoTestFlow(): Promise<TacoTestResult> {
     messageKit,
     initialDecryptError,
     unlockedAfterContribute,
-    contributionTxHash: contributeReceipt?.transactionHash,
+    contributionTxHash,
     decryptedPlaintext: messageKitPlaintext,
-    factoryTxHash: receipt?.transactionHash
+    factoryTxHash
   };
+}
+
+async function sendWithKnownHash(
+  wallet: Wallet,
+  tx: providers.TransactionRequest
+): Promise<{ hash: string; receipt: providers.TransactionReceipt }> {
+  const populated = await wallet.populateTransaction(tx);
+  const signed = await wallet.signTransaction(populated);
+  const hash = utils.keccak256(signed);
+
+  try {
+    await wallet.provider!.sendTransaction(signed);
+  } catch (err: any) {
+    const msg = err?.message || "";
+    if (!msg.toLowerCase().includes("already known")) {
+      throw err;
+    }
+    // If the tx is already in the mempool, just wait for it to mine.
+  }
+
+  const receipt = await wallet.provider!.waitForTransaction(hash);
+  if (!receipt) {
+    throw new Error(`Transaction ${hash} did not produce a receipt`);
+  }
+  return { hash, receipt };
 }

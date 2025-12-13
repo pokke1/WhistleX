@@ -112,7 +112,7 @@ export function buildTacoCondition(
 
   return {
     method: "canDecrypt",
-    parameters: [":userAddress"],
+    parameters: [":contributor"],
     functionAbi: canDecryptAbi,
     contractAddress,
     chain: conditionChainId,
@@ -195,10 +195,10 @@ export async function encryptWithTaco({
     ]
   };
 
-  // Single contract condition: IntelPool.canDecrypt(:userAddress) == true
+  // Single contract condition: IntelPool.canDecrypt(:contributor) == true
   const conditionInstance = new ContractCondition({
     method: "canDecrypt",
-    parameters: [":userAddress"],
+    parameters: [":contributor"],
     functionAbi: canDecryptAbi,
     contractAddress,
     chain: conditionChain,
@@ -281,7 +281,7 @@ export async function decryptWithTaco({
 
   const context = ConditionContext.fromMessageKit(kit);
   context.addCustomContextParameterValues({
-    userAddress: decryptorWallet.address
+    ":contributor": decryptorWallet.address
   });
 
   const decryptedBytes: Uint8Array = await decrypt(

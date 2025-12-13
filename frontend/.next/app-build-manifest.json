@@ -10,10 +10,10 @@
       "static/chunks/main-app.js",
       "static/chunks/app/layout.js"
     ],
-    "/taco-test/page": [
+    "/create/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/taco-test/page.js"
+      "static/chunks/app/create/page.js"
     ]
   }
 }

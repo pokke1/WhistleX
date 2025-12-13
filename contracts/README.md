@@ -1,31 +1,47 @@
 # WhistleX Contracts
 
-Hardhat project containing the IntelPoolFactory and IntelPool smart contracts used by the WhistleX marketplace MVP.
+Hardhat project containing the `IntelPoolFactory` and `IntelPool` smart contracts used by the WhistleX marketplace.
 
-## Getting started
+## Setup
+
+- Node.js 20+ and npm 10+
+- Install dependencies:
 
 ```sh
 cd contracts
 npm install
-npm run build
-npm test
 ```
 
-## Deploying locally
+## Useful scripts
+
+- `npm run build` - compile the contracts
+- `npm test` - run the Hardhat test suite
+- `npm run deploy -- --network localhost` - deploy to a running Hardhat node
+- `npm run deploy:amoy` - deploy the factory and an initial pool to Polygon Amoy
+
+## Local workflow
+
+1) Start a local node:
 
 ```sh
 npx hardhat node
+```
+
+2) In another terminal, deploy to localhost:
+
+```sh
 npm run deploy -- --network localhost
 ```
 
-## Deploying to Polygon Amoy
+3) Copy the printed `IntelPoolFactory` address into the backend/frontend environment files so they can index and transact against the local chain.
 
-A shared Polygon Amoy deployer key (Hardhat default account 0: `0xac0974...ff80`) lives in `../shared/testnet.ts` for testing and TACo integration. Fund it with Amoy MATIC or export `DEPLOYER_KEY` to override. You can also set `AMOY_RPC_URL` if you prefer a custom RPC endpoint (defaults to `https://polygon-amoy.drpc.org`).
+## Polygon Amoy deployment
+
+- Set `AMOY_RPC_URL` and `DEPLOYER_KEY` in your environment (copy the demo key from `../shared/testnet.ts` for quick tests, but use your own funded key for real deployments).
+- Run:
 
 ```sh
-cd contracts
 npm run deploy:amoy
 ```
 
-The script deploys the `IntelPoolFactory` and creates an initial pool in one run. Copy the printed factory address into the fron
-tend/backend environment files.
+The script deploys the `IntelPoolFactory` and creates an initial pool in one run. Save the factory address for the backend and frontend configuration.
