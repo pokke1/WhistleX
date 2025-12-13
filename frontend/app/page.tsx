@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { fetchIntel, fetchPools } from "../lib/api";
+import { contributeToPool, fetchPoolState, PoolOnchainState } from "../lib/onchain";
 import { decryptWithTaco } from "../lib/taco";
 import { describePolicy } from "../lib/tacoClient";
+import { utils } from "ethers";
 
 interface Pool {
   id: string;
@@ -27,12 +29,50 @@ export default function HomePage() {
   const [intelByPool, setIntelByPool] = useState<Record<string, IntelPayload | null>>({});
   const [decryptedByPool, setDecryptedByPool] = useState<Record<string, string>>({});
   const [statusByPool, setStatusByPool] = useState<Record<string, string>>({});
+  const [onchainStateByPool, setOnchainStateByPool] = useState<Record<string, PoolOnchainState>>({});
+  const [contributionInputs, setContributionInputs] = useState<Record<string, string>>({});
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPools()
       .then(setPools)
       .catch((err) => setError(err.message));
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const ethereum = (window as any).ethereum;
+    if (!ethereum?.request) return;
+    ethereum
+      .request({ method: "eth_accounts" })
+      .then((accounts: string[]) => setWalletAddress(accounts?.[0] || null))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    pools.forEach((pool) => refreshPoolState(pool.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pools, walletAddress]);
+
+  async function refreshPoolState(poolId: string) {
+    try {
+      const state = await fetchPoolState(poolId, walletAddress ?? undefined);
+      setOnchainStateByPool((prev) => ({ ...prev, [poolId]: state }));
+    } catch (err: any) {
+      setStatusByPool((prev) => ({ ...prev, [poolId]: err?.message || "Failed to load on-chain state" }));
+    }
+  }
+
+  async function ensureWalletAddress() {
+    if (typeof window === "undefined") throw new Error("window is not available");
+    const ethereum = (window as any).ethereum;
+    if (!ethereum?.request) throw new Error("Wallet provider not found. Please install MetaMask.");
+    const accounts = (await ethereum.request({ method: "eth_requestAccounts" })) as string[];
+    const account = accounts?.[0];
+    if (!account) throw new Error("No account authorized in wallet");
+    setWalletAddress(account);
+    return account;
+  }
 
   async function handleFetchIntel(poolId: string) {
     setStatusByPool((prev) => ({ ...prev, [poolId]: "Loading intel..." }));
@@ -45,10 +85,33 @@ export default function HomePage() {
     }
   }
 
+  async function handleContribute(pool: Pool) {
+    const amount = contributionInputs[pool.id];
+    try {
+      await ensureWalletAddress();
+      setStatusByPool((prev) => ({ ...prev, [pool.id]: "Sending contribution..." }));
+      const { txHash } = await contributeToPool(pool.id, amount || "0");
+      setStatusByPool((prev) => ({ ...prev, [pool.id]: `Contribution sent. Tx ${txHash}` }));
+      await refreshPoolState(pool.id);
+    } catch (err: any) {
+      setStatusByPool((prev) => ({ ...prev, [pool.id]: err?.message || "Failed to contribute" }));
+    }
+  }
+
   async function handleDecrypt(pool: Pool) {
     const intel = intelByPool[pool.id];
     if (!intel) {
       setStatusByPool((prev) => ({ ...prev, [pool.id]: "Load intel first" }));
+      return;
+    }
+
+    const state = onchainStateByPool[pool.id];
+    if (state && !state.unlocked) {
+      setStatusByPool((prev) => ({ ...prev, [pool.id]: "Pool not unlocked yet" }));
+      return;
+    }
+    if (state && state.canDecrypt === false) {
+      setStatusByPool((prev) => ({ ...prev, [pool.id]: "Contribution below decrypt minimum" }));
       return;
     }
 
@@ -93,6 +156,7 @@ export default function HomePage() {
             const intel = intelByPool[pool.id];
             const decrypted = decryptedByPool[pool.id];
             const status = statusByPool[pool.id];
+            const onchain = onchainStateByPool[pool.id];
             return (
               <li key={pool.id} className="border rounded p-4 space-y-2">
                 <div className="flex items-center justify-between">
@@ -106,6 +170,15 @@ export default function HomePage() {
                     )}
                     {pool.ciphertext && <p className="text-xs text-gray-600 truncate">Ciphertext: {pool.ciphertext}</p>}
                     <p className="text-xs text-gray-600 mt-1">Policy: {describePolicy(pool.policyId as any)}</p>
+                    <p className="text-sm text-gray-700 mt-1">
+                      On-chain status: {onchain?.unlocked ? "Unlocked" : "Locked"} · Raised{" "}
+                      {onchain ? utils.formatEther(onchain.totalContributions) : "–"} POL
+                    </p>
+                    {onchain?.canDecrypt !== undefined && (
+                      <p className="text-xs text-gray-600">
+                        Eligibility: {onchain.canDecrypt ? "meets decrypt floor" : "needs to contribute more"}
+                      </p>
+                    )}
                   </div>
                   <Link className="text-blue-600 underline" href={`/pool/${pool.id}`}>
                     View details
@@ -113,6 +186,22 @@ export default function HomePage() {
                 </div>
 
                 <div className="flex gap-3 flex-wrap">
+                  <input
+                    className="border rounded p-2 w-32"
+                    placeholder="Amount (POL)"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={contributionInputs[pool.id] || ""}
+                    onChange={(e) => setContributionInputs((prev) => ({ ...prev, [pool.id]: e.target.value }))}
+                  />
+                  <button
+                    className="bg-green-600 text-white px-3 py-1 rounded disabled:opacity-50"
+                    onClick={() => handleContribute(pool)}
+                    disabled={!contributionInputs[pool.id]}
+                  >
+                    Contribute
+                  </button>
                   <button
                     className="bg-gray-200 px-3 py-1 rounded"
                     onClick={() => handleFetchIntel(pool.id)}
@@ -121,10 +210,10 @@ export default function HomePage() {
                   </button>
                   <button
                     className="bg-blue-600 text-white px-3 py-1 rounded disabled:opacity-50"
-                    disabled={!intel}
+                    disabled={!intel || (onchain && !onchain.unlocked)}
                     onClick={() => handleDecrypt(pool)}
                   >
-                    Decrypt with TACo
+                    Request TACo key
                   </button>
                   {status && <span className="text-sm text-gray-700">{status}</span>}
                 </div>
