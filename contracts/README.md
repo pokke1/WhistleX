@@ -38,10 +38,16 @@ npm run deploy -- --network localhost
 ## Polygon Amoy deployment
 
 - Set `AMOY_RPC_URL` and `DEPLOYER_KEY` in your environment (copy the demo key from `../shared/testnet.ts` for quick tests, but use your own funded key for real deployments).
-- Run:
+- Deploy the mock USDC currency (6 decimals, 1,000,000 minted to the deployer) and copy its address:
+
+```sh
+npm run deploy:usdc:amoy
+```
+
+- Export `CURRENCY_ADDRESS` (or `USDC_ADDRESS`) to the token address from the previous step, then run:
 
 ```sh
 npm run deploy:amoy
 ```
 
-The script deploys the `IntelPoolFactory` and creates an initial pool in one run. Save the factory address for the backend and frontend configuration.
+The script deploys the `IntelPoolFactory` (wired to your mock USDC) and creates an initial pool in one run. Save the factory address for the backend and frontend configuration.

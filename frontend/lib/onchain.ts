@@ -4,17 +4,26 @@ const factoryAbi = [
   "event PoolCreated(address indexed investigator, address pool, uint256 threshold, uint256 minContributionForDecrypt, uint256 deadline, bytes ciphertext)",
   "function createPool(uint256 threshold,uint256 minContributionForDecrypt,uint256 deadline,bytes ciphertext) returns (address)",
   "function poolsCount() view returns (uint256)",
-  "function allPools(uint256 index) view returns (address)"
+  "function allPools(uint256 index) view returns (address)",
+  "function currency() view returns (address)"
 ];
 
 const poolAbi = [
-  "function contribute() payable",
+  "function currency() view returns (address)",
+  "function currencyDecimals() view returns (uint8)",
+  "function contribute(uint256 amount)",
   "function totalContributions() view returns (uint256)",
   "function threshold() view returns (uint256)",
   "function minContributionForDecrypt() view returns (uint256)",
   "function unlocked() view returns (bool)",
   "function canDecrypt(address contributor) view returns (bool)",
   "function contributionOf(address contributor) view returns (uint256)"
+];
+
+const erc20Abi = [
+  "function allowance(address owner, address spender) view returns (uint256)",
+  "function approve(address spender, uint256 value) returns (bool)",
+  "function decimals() view returns (uint8)"
 ];
 
 export interface CreatePoolOnchainParams {
@@ -28,8 +37,11 @@ const AMOY_CHAIN_ID_DEC = 80002;
 const AMOY_CHAIN_ID_HEX = '0x13882'; 
 
 const DEFAULT_AMOY_RPC_URL = process.env.NEXT_PUBLIC_AMOY_RPC_URL || "https://polygon-amoy.drpc.org";
+const DEFAULT_USDC_DECIMALS = Number(process.env.NEXT_PUBLIC_USDC_DECIMALS || "6");
 
 export interface PoolOnchainState {
+  currency: string;
+  currencyDecimals: number;
   totalContributions: string;
   threshold: string;
   minContributionForDecrypt: string;
@@ -93,8 +105,9 @@ export async function createPoolOnchain(params: CreatePoolOnchainParams) {
   await ensureAmoyNetwork(ethereum, provider);
   const signer = provider.getSigner();
 
-  const threshold = utils.parseUnits(params.threshold, 6);
-  const minContribution = utils.parseUnits(params.minContributionForDecrypt, 6);
+  const decimals = DEFAULT_USDC_DECIMALS;
+  const threshold = utils.parseUnits(params.threshold, decimals);
+  const minContribution = utils.parseUnits(params.minContributionForDecrypt, decimals);
   const ciphertext = utils.arrayify(normalizeHex(params.ciphertext));
   const deadline = BigNumber.from(params.deadline);
 
@@ -127,12 +140,17 @@ export async function fetchPoolState(poolAddress: string, userAddress?: string):
   const provider = new providers.JsonRpcProvider(DEFAULT_AMOY_RPC_URL);
   const contract = new Contract(poolAddress, poolAbi, provider);
 
-  const [totalContributions, threshold, minContributionForDecrypt, unlocked] = await Promise.all([
-    contract.totalContributions(),
-    contract.threshold(),
-    contract.minContributionForDecrypt(),
-    contract.unlocked()
-  ]);
+  const [currency, currencyDecimals, totalContributions, threshold, minContributionForDecrypt, unlocked] =
+    await Promise.all([
+      contract.currency(),
+      contract.currencyDecimals(),
+      contract.totalContributions(),
+      contract.threshold(),
+      contract.minContributionForDecrypt(),
+      contract.unlocked()
+    ]);
+  const decimalsNumber = Number(currencyDecimals);
+  const normalizedDecimals = Number.isFinite(decimalsNumber) ? decimalsNumber : DEFAULT_USDC_DECIMALS;
 
   let userContribution: string | undefined;
   let canDecrypt: boolean | undefined;
@@ -146,6 +164,8 @@ export async function fetchPoolState(poolAddress: string, userAddress?: string):
   }
 
   return {
+    currency,
+    currencyDecimals: normalizedDecimals,
     totalContributions: totalContributions.toString(),
     threshold: threshold.toString(),
     minContributionForDecrypt: minContributionForDecrypt.toString(),
@@ -155,8 +175,8 @@ export async function fetchPoolState(poolAddress: string, userAddress?: string):
   };
 }
 
-export async function contributeToPool(poolAddress: string, amountEth: string) {
-  if (!amountEth || Number(amountEth) <= 0) {
+export async function contributeToPool(poolAddress: string, amountTokens: string) {
+  if (!amountTokens || Number(amountTokens) <= 0) {
     throw new Error("Contribution amount must be greater than zero");
   }
 
@@ -173,10 +193,21 @@ export async function contributeToPool(poolAddress: string, amountEth: string) {
   await ensureAmoyNetwork(ethereum, provider);
 
   const signer = provider.getSigner();
-  const contract = new Contract(poolAddress, poolAbi, signer);
-  const value = utils.parseEther(amountEth);
+  const pool = new Contract(poolAddress, poolAbi, signer);
+  const [currencyAddress, decimals] = await Promise.all([pool.currency(), pool.currencyDecimals()]);
+  const decimalsNumber = Number(decimals);
+  const normalizedDecimals = Number.isFinite(decimalsNumber) ? decimalsNumber : DEFAULT_USDC_DECIMALS;
+  const parsedAmount = utils.parseUnits(amountTokens, normalizedDecimals);
+  const erc20 = new Contract(currencyAddress, erc20Abi, signer);
+  const owner = await signer.getAddress();
+  const allowance: BigNumber = await erc20.allowance(owner, poolAddress);
 
-  const tx = await contract.contribute({ value });
+  if (allowance.lt(parsedAmount)) {
+    const approveTx = await erc20.approve(poolAddress, parsedAmount);
+    await approveTx.wait();
+  }
+
+  const tx = await pool.contribute(parsedAmount);
   const receipt = await tx.wait();
   return { txHash: receipt?.hash || tx.hash };
 }

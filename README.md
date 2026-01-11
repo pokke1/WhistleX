@@ -83,19 +83,23 @@ export DEPLOYER_KEY=0x87689923f91e01933abee394cf3ff28c2f14d864ee58b08a347c5ecce8
 
 ```sh
 cd contracts
-npm run deploy:amoy
+npm run deploy:usdc:amoy   # deploys MockUSDC (1,000,000 supply, 6 decimals)
+export CURRENCY_ADDRESS=<MockUSDC address from previous command>
+npm run deploy:amoy        # deploys IntelPoolFactory bound to MockUSDC and an initial pool
 ```
 
 3) Point the backend at Polygon Amoy
 
 - `RPC_URL` or `AMOY_RPC_URL` set to your Amoy RPC
 - `FACTORY_ADDRESS` set to the deployed factory address
+- `USDC_ADDRESS` set to the MockUSDC address (also share as `NEXT_PUBLIC_USDC_ADDRESS` for the frontend)
 - `SUPABASE_URL` and `SUPABASE_ANON_KEY` set for your project
 
 4) Point the frontend at Polygon Amoy
 
 - `NEXT_PUBLIC_BACKEND_URL` set to your backend URL
 - `NEXT_PUBLIC_FACTORY_ADDRESS` set to the same factory address
+- `NEXT_PUBLIC_USDC_ADDRESS` set to the MockUSDC address
 - Keep or override the TACo RPC/key values already present in `frontend/.env.example`
 
 ## TACo access rule

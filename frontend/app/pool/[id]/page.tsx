@@ -4,6 +4,18 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { fetchPools } from "../../../lib/api";
 import { describePolicy } from "../../../lib/tacoClient";
+import { utils } from "ethers";
+
+const CURRENCY_SYMBOL = "USDC";
+const DEFAULT_DECIMALS = Number(process.env.NEXT_PUBLIC_USDC_DECIMALS || "6");
+
+function formatAmount(value: string) {
+  try {
+    return utils.formatUnits(value, DEFAULT_DECIMALS);
+  } catch {
+    return value;
+  }
+}
 
 interface Pool {
   id: string;
@@ -39,8 +51,8 @@ export default function PoolDetailPage() {
     <main className="p-8 space-y-4">
       <h1 className="text-2xl font-semibold">Pool {pool.id}</h1>
       <p>Investigator: {pool.investigator}</p>
-      <p>Threshold: {pool.threshold} wei</p>
-      <p>Contribution to decrypt: {pool.minContributionForDecrypt} wei</p>
+      <p>Threshold: {formatAmount(pool.threshold)} {CURRENCY_SYMBOL}</p>
+      <p>Contribution to decrypt: {formatAmount(pool.minContributionForDecrypt)} {CURRENCY_SYMBOL}</p>
       <p className="text-sm text-gray-700">{describePolicy(pool.policyId as any)}</p>
 
       <section className="space-y-2">

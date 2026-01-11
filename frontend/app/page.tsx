@@ -8,6 +8,18 @@ import { decryptWithTaco } from "../lib/taco";
 import { describePolicy } from "../lib/tacoClient";
 import { utils } from "ethers";
 
+const CURRENCY_SYMBOL = "USDC";
+const DEFAULT_DECIMALS = Number(process.env.NEXT_PUBLIC_USDC_DECIMALS || "6");
+
+function formatAmount(value?: string, decimals: number = DEFAULT_DECIMALS) {
+  if (!value) return "–";
+  try {
+    return utils.formatUnits(value, decimals);
+  } catch {
+    return value;
+  }
+}
+
 interface Pool {
   id: string;
   investigator: string;
@@ -157,22 +169,29 @@ export default function HomePage() {
             const decrypted = decryptedByPool[pool.id];
             const status = statusByPool[pool.id];
             const onchain = onchainStateByPool[pool.id];
+            const decimals = onchain?.currencyDecimals ?? DEFAULT_DECIMALS;
+            const thresholdDisplay = onchain ? formatAmount(onchain.threshold, decimals) : pool.threshold;
+            const minContributionDisplay = onchain
+              ? formatAmount(onchain.minContributionForDecrypt, decimals)
+              : pool.minContributionForDecrypt;
+            const raisedDisplay = onchain ? formatAmount(onchain.totalContributions, decimals) : "-";
             return (
               <li key={pool.id} className="border rounded p-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-semibold">Pool {pool.id}</p>
                     <p className="text-sm text-gray-700">Investigator: {pool.investigator}</p>
-                    <p className="text-sm text-gray-700">Threshold: {pool.threshold} USDC</p>
-                    <p className="text-sm text-gray-700">Contribution to decrypt: {pool.minContributionForDecrypt} USDC</p>
+                    <p className="text-sm text-gray-700">Threshold: {thresholdDisplay} {CURRENCY_SYMBOL}</p>
+                    <p className="text-sm text-gray-700">
+                      Contribution to decrypt: {minContributionDisplay} {CURRENCY_SYMBOL}
+                    </p>
                     {pool.deadline && (
                       <p className="text-sm text-gray-700">Deadline: {new Date(Number(pool.deadline) * 1000).toLocaleString()}</p>
                     )}
                     {pool.ciphertext && <p className="text-xs text-gray-600 truncate">Ciphertext: {pool.ciphertext}</p>}
                     <p className="text-xs text-gray-600 mt-1">Policy: {describePolicy(pool.policyId as any)}</p>
                     <p className="text-sm text-gray-700 mt-1">
-                      On-chain status: {onchain?.unlocked ? "Unlocked" : "Locked"} · Raised{" "}
-                      {onchain ? utils.formatEther(onchain.totalContributions) : "–"} POL
+                      On-chain status: {onchain?.unlocked ? "Unlocked" : "Locked"} - Raised {raisedDisplay} {CURRENCY_SYMBOL}
                     </p>
                     {onchain?.canDecrypt !== undefined && (
                       <p className="text-xs text-gray-600">
@@ -188,10 +207,10 @@ export default function HomePage() {
                 <div className="flex gap-3 flex-wrap">
                   <input
                     className="border rounded p-2 w-32"
-                    placeholder="Amount (POL)"
+                    placeholder={`Amount (${CURRENCY_SYMBOL})`}
                     type="number"
                     min="0"
-                    step="0.01"
+                    step="0.000001"
                     value={contributionInputs[pool.id] || ""}
                     onChange={(e) => setContributionInputs((prev) => ({ ...prev, [pool.id]: e.target.value }))}
                   />

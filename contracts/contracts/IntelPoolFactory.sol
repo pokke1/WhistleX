@@ -5,7 +5,13 @@ import "./IntelPool.sol";
 
 /// @title IntelPoolFactory - deploys IntelPool instances for investigators
 contract IntelPoolFactory {
+    address public immutable currency;
     address[] public allPools;
+
+    constructor(address _currency) {
+        require(_currency != address(0), "currency required");
+        currency = _currency;
+    }
 
     event PoolCreated(
         address indexed investigator,
@@ -22,7 +28,7 @@ contract IntelPoolFactory {
         uint256 deadline,
         bytes calldata ciphertext
     ) external returns (address pool) {
-        pool = address(new IntelPool(msg.sender, threshold, minContributionForDecrypt, deadline, ciphertext));
+        pool = address(new IntelPool(currency, msg.sender, threshold, minContributionForDecrypt, deadline, ciphertext));
         allPools.push(pool);
 
         emit PoolCreated(msg.sender, pool, threshold, minContributionForDecrypt, deadline, ciphertext);

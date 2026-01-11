@@ -16,6 +16,7 @@ npm install
 - `SUPABASE_URL` and `SUPABASE_ANON_KEY` (required)
 - `RPC_URL` (or `AMOY_RPC_URL`) for the chain you want to index
 - `FACTORY_ADDRESS` from your contract deployment
+- `USDC_ADDRESS` (optional) to share the pool currency address with other services
 - `PORT` optional (defaults to 4000)
 
 3) Run the service:
