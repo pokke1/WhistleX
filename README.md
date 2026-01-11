@@ -164,22 +164,35 @@ npm run dev
 
 The app is now reachable at `http://localhost:3000` against the local contracts + backend.
 
-## 🌐 Base Sepolia Deployment (testnet)
+## 🌐 Sepolia Deployment (shared test key)
 
-1) Export a funded deployer key and RPC URL before running Hardhat:
+For end-to-end TACo + Sepolia testing, the repo now uses the same demo values as the provided CLI sample:
+
+- RPC: `https://sepolia.drpc.org`
+- DKG RPC: `https://polygon-amoy.drpc.org`
+- Ritual ID: `6`
+- Demo private key: Hardhat default account 0 (`0xac0974...ff80`, stored in `shared/testnet.ts`)
+
+Environment variables in `frontend/.env.example` and `backend/.env.example` are prefilled with these values. If you populate `.env` files, those overrides are used; if you leave them empty, the hardcoded Sepolia defaults remain in effect for fast testing.
+
+1) (Optional) Override the default RPC or key by exporting env vars or editing `.env` files:
 
 ```sh
-export BASE_SEPOLIA_RPC_URL=https://base-sepolia.example
-export DEPLOYER_KEY=0xyour_private_key
+export SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/YOUR_PROJECT_ID
+export NEXT_PUBLIC_TACO_PRIVATE_KEY=0xyour_own_test_key
+export DEPLOYER_KEY=0xyour_own_test_key # otherwise the bundled key is used
 ```
 
-2) Deploy from `contracts/`:
+2) Deploy factory + initial pool to Sepolia with the baked-in RPC/key (or your overrides):
 
 ```sh
 cd contracts
-npx hardhat run scripts/deploy.ts --network baseSepolia
+npm run deploy:sepolia
 ```
 
-3) Update `backend/.env` `RPC_URL` to the Base Sepolia endpoint and `FACTORY_ADDRESS` to the deployed factory address. The frontend will reuse the backend API and on-chain config automatically.
+3) Point the backend and frontend at the deployed factory:
+
+- `backend/.env`: set `FACTORY_ADDRESS` to the factory address printed by the deploy script (RPC defaults to Sepolia unless you set `RPC_URL`).
+- `frontend/.env`: set `NEXT_PUBLIC_BACKEND_URL` to your backend and `NEXT_PUBLIC_FACTORY_ADDRESS` to the same factory address. The frontend automatically reuses the shared TACo private key from `shared/testnet.ts` when encrypting unless you override it via env vars.
 
 
