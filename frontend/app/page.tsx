@@ -7,12 +7,14 @@ import { contributeToPool, fetchPoolState, PoolOnchainState } from "../lib/oncha
 import { decryptWithTaco } from "../lib/taco";
 import { describePolicy } from "../lib/tacoClient";
 import { utils } from "ethers";
+import { decryptIntelWithKey, parseSymmetricKey } from "../lib/symmetricCrypto";
+import { useWallet } from "./components/WalletProvider";
 
 const CURRENCY_SYMBOL = "USDC";
 const DEFAULT_DECIMALS = Number(process.env.NEXT_PUBLIC_USDC_DECIMALS || "6");
 
 function formatAmount(value?: string, decimals: number = DEFAULT_DECIMALS) {
-  if (!value) return "–";
+  if (!value) return "-";
   try {
     return utils.formatUnits(value, decimals);
   } catch {
@@ -28,6 +30,8 @@ interface Pool {
   policyId?: string;
   deadline?: string;
   ciphertext?: string;
+  title?: string;
+  description?: string;
 }
 
 interface IntelPayload {
@@ -40,25 +44,16 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [intelByPool, setIntelByPool] = useState<Record<string, IntelPayload | null>>({});
   const [decryptedByPool, setDecryptedByPool] = useState<Record<string, string>>({});
+  const [plaintextByPool, setPlaintextByPool] = useState<Record<string, string>>({});
   const [statusByPool, setStatusByPool] = useState<Record<string, string>>({});
   const [onchainStateByPool, setOnchainStateByPool] = useState<Record<string, PoolOnchainState>>({});
   const [contributionInputs, setContributionInputs] = useState<Record<string, string>>({});
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const { walletAddress, connectWallet } = useWallet();
 
   useEffect(() => {
     fetchPools()
       .then(setPools)
       .catch((err) => setError(err.message));
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const ethereum = (window as any).ethereum;
-    if (!ethereum?.request) return;
-    ethereum
-      .request({ method: "eth_accounts" })
-      .then((accounts: string[]) => setWalletAddress(accounts?.[0] || null))
-      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -76,13 +71,9 @@ export default function HomePage() {
   }
 
   async function ensureWalletAddress() {
-    if (typeof window === "undefined") throw new Error("window is not available");
-    const ethereum = (window as any).ethereum;
-    if (!ethereum?.request) throw new Error("Wallet provider not found. Please install MetaMask.");
-    const accounts = (await ethereum.request({ method: "eth_requestAccounts" })) as string[];
-    const account = accounts?.[0];
+    if (walletAddress) return walletAddress;
+    const account = await connectWallet();
     if (!account) throw new Error("No account authorized in wallet");
-    setWalletAddress(account);
     return account;
   }
 
@@ -111,6 +102,12 @@ export default function HomePage() {
   }
 
   async function handleDecrypt(pool: Pool) {
+    const account = await ensureWalletAddress().catch((err) => {
+      setStatusByPool((prev) => ({ ...prev, [pool.id]: err?.message || "Wallet required for TACo decryption" }));
+      return null;
+    });
+    if (!account) return;
+
     const intel = intelByPool[pool.id];
     if (!intel) {
       setStatusByPool((prev) => ({ ...prev, [pool.id]: "Load intel first" }));
@@ -126,13 +123,13 @@ export default function HomePage() {
       setStatusByPool((prev) => ({ ...prev, [pool.id]: "Contribution below decrypt minimum" }));
       return;
     }
-
     setStatusByPool((prev) => ({ ...prev, [pool.id]: "Requesting decryption from TACo..." }));
     try {
       const plaintext = await decryptWithTaco({
         poolAddress: pool.id,
         minContributionForDecrypt: pool.minContributionForDecrypt,
-        messageKit: intel.messageKit
+        messageKit: intel.messageKit,
+        contributorAddress: account
       });
       setDecryptedByPool((prev) => ({ ...prev, [pool.id]: plaintext }));
       setStatusByPool((prev) => ({ ...prev, [pool.id]: "Decrypted with TACo" }));
@@ -141,29 +138,57 @@ export default function HomePage() {
     }
   }
 
+  async function handleDecryptIntel(pool: Pool) {
+    const intel = intelByPool[pool.id];
+    const key = decryptedByPool[pool.id];
+    if (!intel) {
+      setStatusByPool((prev) => ({ ...prev, [pool.id]: "Load intel first" }));
+      return;
+    }
+    if (!key) {
+      setStatusByPool((prev) => ({ ...prev, [pool.id]: "Request TACo key first" }));
+      return;
+    }
+    try {
+      setStatusByPool((prev) => ({ ...prev, [pool.id]: "Decrypting intel locally..." }));
+      const keyBytes = parseSymmetricKey(key);
+      const plaintext = await decryptIntelWithKey({ ciphertext: intel.ciphertext, keyBytes });
+      setPlaintextByPool((prev) => ({ ...prev, [pool.id]: plaintext }));
+      setStatusByPool((prev) => ({ ...prev, [pool.id]: "Intel decrypted" }));
+    } catch (err: any) {
+      setStatusByPool((prev) => ({ ...prev, [pool.id]: err?.message || "Failed to decrypt intel" }));
+    }
+  }
+
   return (
-    <main className="p-8 space-y-6">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-bold">WhistleX</h1>
-        <p className="text-gray-700">
-          Decentralized, TACo-protected marketplace for funding encrypted intelligence drops.
-        </p>
-        <div className="flex gap-4">
-          <Link className="text-blue-600 underline" href="/create">
+    <main className="app-shell">
+      <header className="top-bar">
+        <div>
+          <h1 className="title">WhistleX</h1>
+          <p className="subtitle">
+            TACo-secured marketplace for encrypted intelligence. Fund, unlock, and decrypt once the crowd meets the goal.
+          </p>
+        </div>
+        <div className="input-row">
+          <Link className="primary-btn" href="/create">
             Create pool
           </Link>
-          <a className="text-blue-600 underline" href="https://taco.xyz" target="_blank">
-            TACo docs
-          </a>
         </div>
       </header>
 
-      {error && <p className="text-red-600">{error}</p>}
+      {error && <div className="message"> {error} </div>}
 
-      <section className="space-y-3">
-        <h2 className="text-xl font-semibold">Open pools</h2>
-        {pools.length === 0 && <p className="text-gray-600">No pools indexed yet.</p>}
-        <ul className="space-y-2">
+      <RecentUnlocks pools={pools} onchainStateByPool={onchainStateByPool} />
+
+      <section className="panel">
+        <div className="section-header">
+          <h2 className="section-title">Open pools</h2>
+          <span className="pill">{pools.length} listed</span>
+        </div>
+
+        {pools.length === 0 && <div className="message">No pools indexed yet.</div>}
+
+        <div className="grid">
           {pools.map((pool) => {
             const intel = intelByPool[pool.id];
             const decrypted = decryptedByPool[pool.id];
@@ -175,38 +200,45 @@ export default function HomePage() {
               ? formatAmount(onchain.minContributionForDecrypt, decimals)
               : pool.minContributionForDecrypt;
             const raisedDisplay = onchain ? formatAmount(onchain.totalContributions, decimals) : "-";
+            const deadlineLabel = pool.deadline
+              ? new Date(Number(pool.deadline) * 1000).toLocaleString()
+              : "-";
+
             return (
-              <li key={pool.id} className="border rounded p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold">Pool {pool.id}</p>
-                    <p className="text-sm text-gray-700">Investigator: {pool.investigator}</p>
-                    <p className="text-sm text-gray-700">Threshold: {thresholdDisplay} {CURRENCY_SYMBOL}</p>
-                    <p className="text-sm text-gray-700">
-                      Contribution to decrypt: {minContributionDisplay} {CURRENCY_SYMBOL}
-                    </p>
-                    {pool.deadline && (
-                      <p className="text-sm text-gray-700">Deadline: {new Date(Number(pool.deadline) * 1000).toLocaleString()}</p>
-                    )}
-                    {pool.ciphertext && <p className="text-xs text-gray-600 truncate">Ciphertext: {pool.ciphertext}</p>}
-                    <p className="text-xs text-gray-600 mt-1">Policy: {describePolicy(pool.policyId as any)}</p>
-                    <p className="text-sm text-gray-700 mt-1">
-                      On-chain status: {onchain?.unlocked ? "Unlocked" : "Locked"} - Raised {raisedDisplay} {CURRENCY_SYMBOL}
-                    </p>
-                    {onchain?.canDecrypt !== undefined && (
-                      <p className="text-xs text-gray-600">
-                        Eligibility: {onchain.canDecrypt ? "meets decrypt floor" : "needs to contribute more"}
-                      </p>
-                    )}
-                  </div>
-                  <Link className="text-blue-600 underline" href={`/pool/${pool.id}`}>
-                    View details
-                  </Link>
+              <article key={pool.id} className="card">
+                <div className="stat-row">
+                  <span className="tag">{onchain?.unlocked ? "Unlocked" : "Locked"}</span>
+                  {onchain?.canDecrypt !== undefined && (
+                    <span className={`tag ${onchain.canDecrypt ? "" : "tag-warn"}`}>
+                      {onchain.canDecrypt ? "Eligible to decrypt" : "Needs more contribution"}
+                    </span>
+                  )}
                 </div>
 
-                <div className="flex gap-3 flex-wrap">
+                <div>
+                  <p className="muted">Pool</p>
+                  <h3>{pool.title || pool.id}</h3>
+                  {pool.description && <p className="muted" style={{ marginTop: 4 }}>{pool.description}</p>}
+                  {!pool.title && <p className="muted" style={{ fontSize: 12 }}>{pool.id}</p>}
+                </div>
+
+                <div className="stat-row">
+                  <div className="stat">Threshold: {thresholdDisplay} {CURRENCY_SYMBOL}</div>
+                  <div className="stat">Decrypt floor: {minContributionDisplay} {CURRENCY_SYMBOL}</div>
+                  <div className="stat">Raised: {raisedDisplay} {CURRENCY_SYMBOL}</div>
+                </div>
+
+                <div className="stat-row">
+                  <div className="stat">Investigator: {pool.investigator}</div>
+                  <div className="stat">Deadline: {deadlineLabel}</div>
+                </div>
+
+                <p className="muted">Policy: {describePolicy(pool.policyId as any)}</p>
+                {pool.ciphertext && <p className="muted">Ciphertext: {pool.ciphertext}</p>}
+
+                <div className="input-row">
                   <input
-                    className="border rounded p-2 w-32"
+                    className="input"
                     placeholder={`Amount (${CURRENCY_SYMBOL})`}
                     type="number"
                     min="0"
@@ -215,46 +247,105 @@ export default function HomePage() {
                     onChange={(e) => setContributionInputs((prev) => ({ ...prev, [pool.id]: e.target.value }))}
                   />
                   <button
-                    className="bg-green-600 text-white px-3 py-1 rounded disabled:opacity-50"
+                    className="button cta"
                     onClick={() => handleContribute(pool)}
                     disabled={!contributionInputs[pool.id]}
                   >
                     Contribute
                   </button>
-                  <button
-                    className="bg-gray-200 px-3 py-1 rounded"
-                    onClick={() => handleFetchIntel(pool.id)}
-                  >
+                  <button className="button" onClick={() => handleFetchIntel(pool.id)}>
                     Load intel
                   </button>
                   <button
-                    className="bg-blue-600 text-white px-3 py-1 rounded disabled:opacity-50"
+                    className="button"
                     disabled={!intel || (onchain && !onchain.unlocked)}
                     onClick={() => handleDecrypt(pool)}
                   >
                     Request TACo key
                   </button>
-                  {status && <span className="text-sm text-gray-700">{status}</span>}
+                  <button
+                    className="button"
+                    disabled={!intel || !decrypted}
+                    onClick={() => handleDecryptIntel(pool)}
+                  >
+                    Decrypt intel
+                  </button>
+                  <Link className="button" href={`/pool/${pool.id}`}>
+                    View details
+                  </Link>
                 </div>
 
+                {status && <span className="muted">{status}</span>}
+
                 {intel && (
-                  <div className="bg-gray-50 border rounded p-2 text-xs space-y-1">
-                    <p className="font-semibold">MessageKit</p>
-                    <textarea className="w-full min-h-[80px]" readOnly value={intel.messageKit} />
+                  <div className="panel">
+                    <p className="muted">MessageKit</p>
+                    <textarea className="input" style={{ width: "100%", minHeight: 80 }} readOnly value={intel.messageKit} />
                   </div>
                 )}
 
                 {decrypted && (
-                  <div className="bg-green-50 border border-green-200 rounded p-2 text-sm space-y-1">
-                    <p className="font-semibold">Decrypted intel</p>
-                    <pre className="whitespace-pre-wrap break-words text-xs">{decrypted}</pre>
+                  <div className="panel" style={{ borderColor: "rgba(90, 212, 172, 0.5)" }}>
+                    <p className="muted">Decrypted TACo key</p>
+                    <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 12 }}>{decrypted}</pre>
                   </div>
                 )}
-              </li>
+
+                {plaintextByPool[pool.id] && (
+                  <div className="panel" style={{ borderColor: "rgba(77, 163, 255, 0.5)" }}>
+                    <p className="muted">Intel plaintext</p>
+                    <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 12 }}>
+                      {plaintextByPool[pool.id]}
+                    </pre>
+                  </div>
+                )}
+              </article>
             );
           })}
-        </ul>
+        </div>
       </section>
     </main>
+  );
+}
+
+function RecentUnlocks({
+  pools,
+  onchainStateByPool
+}: {
+  pools: Pool[];
+  onchainStateByPool: Record<string, PoolOnchainState>;
+}) {
+  const unlocked = pools.filter((pool) => onchainStateByPool[pool.id]?.unlocked);
+
+  return (
+    <section className="panel">
+      <div className="section-header">
+        <h2 className="section-title">Recently unlocked</h2>
+        <span className="pill">{unlocked.length} ready</span>
+      </div>
+      {unlocked.length === 0 ? (
+        <div className="message">No pools unlocked yet. Contribute to push one over the line.</div>
+      ) : (
+        <div className="slider">
+          {unlocked.map((pool) => {
+            const onchain = onchainStateByPool[pool.id];
+            const decimals = onchain?.currencyDecimals ?? DEFAULT_DECIMALS;
+            const raisedDisplay = onchain ? formatAmount(onchain.totalContributions, decimals) : "-";
+            return (
+              <div key={pool.id} className="slider-card">
+                <p className="muted" style={{ margin: 0 }}>Pool</p>
+                <p style={{ margin: "4px 0 8px", fontWeight: 600 }}>{pool.id}</p>
+                <div className="stat-row">
+                  <span className="stat">Raised: {raisedDisplay} {CURRENCY_SYMBOL}</span>
+                </div>
+                <Link className="button cta" href={`/pool/${pool.id}`} style={{ marginTop: 10, display: "inline-block" }}>
+                  View pool
+                </Link>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }

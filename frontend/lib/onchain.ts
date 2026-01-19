@@ -1,4 +1,5 @@
 import { BigNumber, Contract, providers, utils } from "ethers";
+import { getActiveProvider } from "./wallet";
 
 const factoryAbi = [
   "event PoolCreated(address indexed investigator, address pool, uint256 threshold, uint256 minContributionForDecrypt, uint256 deadline, bytes ciphertext)",
@@ -91,9 +92,9 @@ export async function createPoolOnchain(params: CreatePoolOnchainParams) {
     throw new Error("window is not available");
   }
 
-  const ethereum = (window as any).ethereum;
+  const ethereum = getActiveProvider();
   if (!ethereum) {
-    throw new Error("Wallet provider not found. Please install MetaMask.");
+    throw new Error("Wallet provider not found. Please install MetaMask, Phantom, or another EVM wallet.");
   }
 
   const factoryAddress = process.env.NEXT_PUBLIC_FACTORY_ADDRESS;
@@ -184,9 +185,9 @@ export async function contributeToPool(poolAddress: string, amountTokens: string
     throw new Error("window is not available");
   }
 
-  const ethereum = (window as any).ethereum;
+  const ethereum = getActiveProvider();
   if (!ethereum) {
-    throw new Error("Wallet provider not found. Please install MetaMask.");
+    throw new Error("Wallet provider not found. Please install MetaMask, Phantom, or another EVM wallet.");
   }
 
   const provider = new providers.Web3Provider(ethereum);
