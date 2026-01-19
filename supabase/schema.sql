@@ -3,6 +3,8 @@ create table if not exists pools (
   investigator text not null,
   threshold text not null,
   mincontributionfordecrypt text not null,
+  title text,
+  description text,
   factoryaddress text,
   policyid text,
   deadline text,
@@ -20,5 +22,6 @@ create table if not exists intel_blobs (
   id uuid default uuid_generate_v4() primary key,
   poolid text references pools(id),
   ciphertext text not null,
-  messagekit text not null
+  messagekit text not null,
+  created_at timestamp with time zone default now()
 );

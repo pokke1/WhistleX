@@ -14,6 +14,10 @@ import * as Contracts from ".";
 declare module "hardhat/types/runtime" {
   interface HardhatEthersHelpers extends HardhatEthersHelpersBase {
     getContractFactory(
+      name: "IERC20",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IERC20__factory>;
+    getContractFactory(
       name: "IntelPool",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IntelPool__factory>;
@@ -21,7 +25,16 @@ declare module "hardhat/types/runtime" {
       name: "IntelPoolFactory",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IntelPoolFactory__factory>;
+    getContractFactory(
+      name: "MockUSDC",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.MockUSDC__factory>;
 
+    getContractAt(
+      name: "IERC20",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IERC20>;
     getContractAt(
       name: "IntelPool",
       address: string | ethers.Addressable,
@@ -32,7 +45,16 @@ declare module "hardhat/types/runtime" {
       address: string | ethers.Addressable,
       signer?: ethers.Signer
     ): Promise<Contracts.IntelPoolFactory>;
+    getContractAt(
+      name: "MockUSDC",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.MockUSDC>;
 
+    deployContract(
+      name: "IERC20",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IERC20>;
     deployContract(
       name: "IntelPool",
       signerOrOptions?: ethers.Signer | DeployContractOptions
@@ -41,7 +63,16 @@ declare module "hardhat/types/runtime" {
       name: "IntelPoolFactory",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.IntelPoolFactory>;
+    deployContract(
+      name: "MockUSDC",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.MockUSDC>;
 
+    deployContract(
+      name: "IERC20",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IERC20>;
     deployContract(
       name: "IntelPool",
       args: any[],
@@ -52,6 +83,11 @@ declare module "hardhat/types/runtime" {
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.IntelPoolFactory>;
+    deployContract(
+      name: "MockUSDC",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.MockUSDC>;
 
     // default types
     getContractFactory(

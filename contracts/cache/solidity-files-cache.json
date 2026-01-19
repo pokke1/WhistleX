@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "C:\\Users\\aless\\Desktop\\WhistleX\\contracts\\contracts\\IntelPool.sol": {
-      "lastModificationDate": 1764438126952,
-      "contentHash": "c2cfd005c47ea7990b750109c546eb11",
+      "lastModificationDate": 1768139036129,
+      "contentHash": "c7a1377c8aa76e300fe22f2b678e06db",
       "sourceName": "contracts/IntelPool.sol",
       "solcConfig": {
         "version": "0.8.21",
@@ -34,12 +34,13 @@
         "^0.8.21"
       ],
       "artifacts": [
+        "IERC20",
         "IntelPool"
       ]
     },
     "C:\\Users\\aless\\Desktop\\WhistleX\\contracts\\contracts\\IntelPoolFactory.sol": {
-      "lastModificationDate": 1764438126952,
-      "contentHash": "08fd3940e218b367a3d9825ca3e3a8c2",
+      "lastModificationDate": 1768139071296,
+      "contentHash": "ec2b28f745f0412f63a23ef375062668",
       "sourceName": "contracts/IntelPoolFactory.sol",
       "solcConfig": {
         "version": "0.8.21",
@@ -73,6 +74,42 @@
       ],
       "artifacts": [
         "IntelPoolFactory"
+      ]
+    },
+    "C:\\Users\\aless\\Desktop\\WhistleX\\contracts\\contracts\\MockUSDC.sol": {
+      "lastModificationDate": 1768138999674,
+      "contentHash": "d09f571bc22362d6acb39e60acac99a8",
+      "sourceName": "contracts/MockUSDC.sol",
+      "solcConfig": {
+        "version": "0.8.21",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.21"
+      ],
+      "artifacts": [
+        "MockUSDC"
       ]
     }
   }

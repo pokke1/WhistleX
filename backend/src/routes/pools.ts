@@ -14,7 +14,7 @@ router.get("/", async (_req: Request, res: Response) => {
 });
 
 router.post("/", async (req: Request, res: Response) => {
-  const { id, investigator, threshold, minContributionForDecrypt, deadline, ciphertext } = req.body;
+  const { id, investigator, threshold, minContributionForDecrypt, deadline, ciphertext, title, description } = req.body;
   if (!id || !investigator || !threshold || !minContributionForDecrypt || !deadline || !ciphertext) {
     return res
       .status(400)
@@ -24,13 +24,25 @@ router.post("/", async (req: Request, res: Response) => {
   const policy = buildCanonicalPolicy(id, minContributionForDecrypt);
   const { error } = await supabase
     .from("pools")
-    .upsert(toDbPool({ id, investigator, threshold, minContributionForDecrypt, policyId: JSON.stringify(policy), deadline, ciphertext }));
+    .upsert(
+      toDbPool({
+        id,
+        investigator,
+        threshold,
+        minContributionForDecrypt,
+        policyId: JSON.stringify(policy),
+        deadline,
+        ciphertext,
+        title,
+        description
+      })
+    );
 
   if (error) {
     return res.status(500).json({ error: error.message });
   }
 
-  return res.json({ id, investigator, threshold, minContributionForDecrypt, deadline, ciphertext, policy });
+  return res.json({ id, investigator, threshold, minContributionForDecrypt, deadline, ciphertext, policy, title, description });
 });
 
 function toDbPool(payload: {
@@ -42,6 +54,8 @@ function toDbPool(payload: {
   deadline?: string;
   ciphertext?: string;
   factoryAddress?: string;
+  title?: string;
+  description?: string;
 }) {
   const { minContributionForDecrypt, factoryAddress, policyId, ...rest } = payload;
   return {

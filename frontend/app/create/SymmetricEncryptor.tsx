@@ -5,9 +5,10 @@ import { encryptIntelWithKey, generateSymmetricKey, parseSymmetricKey } from "..
 
 interface SymmetricEncryptorProps {
   onCiphertextReady?: (ciphertextHex: string) => void;
+  onKeyReady?: (keyHex: string) => void;
 }
 
-export default function SymmetricEncryptor({ onCiphertextReady }: SymmetricEncryptorProps) {
+export default function SymmetricEncryptor({ onCiphertextReady, onKeyReady }: SymmetricEncryptorProps) {
   const [plaintext, setPlaintext] = useState("");
   const [keyInput, setKeyInput] = useState("");
   const [ciphertext, setCiphertext] = useState("");
@@ -23,6 +24,7 @@ export default function SymmetricEncryptor({ onCiphertextReady }: SymmetricEncry
       const generated = await generateSymmetricKey();
       setKeyInput(generated.keyHex);
       setKeyBase64(generated.keyBase64);
+      onKeyReady?.(generated.keyHex);
       setStatus("New symmetric key generated locally. Keep it safe and never upload it.");
     } catch (err: any) {
       setStatus(null);
@@ -36,6 +38,8 @@ export default function SymmetricEncryptor({ onCiphertextReady }: SymmetricEncry
 
     try {
       const keyBytes = parseSymmetricKey(keyInput || keyBase64);
+      const keyHex = generatedKeyToHex(keyBytes);
+      onKeyReady?.(keyHex);
       const { ciphertextHex, ivHex: generatedIvHex } = await encryptIntelWithKey({
         plaintext,
         keyBytes
@@ -121,4 +125,10 @@ export default function SymmetricEncryptor({ onCiphertextReady }: SymmetricEncry
       )}
     </section>
   );
+}
+
+function generatedKeyToHex(bytes: Uint8Array) {
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }

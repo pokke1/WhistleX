@@ -10,13 +10,13 @@ function getCrypto(): Crypto {
   throw new Error("Web Crypto API is not available in this environment");
 }
 
-function bytesToHex(bytes: Uint8Array): string {
+export function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes)
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
 }
 
-function hexToBytes(hex: string): Uint8Array {
+export function hexToBytes(hex: string): Uint8Array {
   const normalized = hex.trim().toLowerCase().replace(/^0x/, "");
   if (normalized.length % 2 !== 0) {
     throw new Error("Hex string must have an even length");
@@ -137,3 +137,33 @@ export const symmetricEncoding = {
   bytesToBase64,
   base64ToBytes
 };
+
+export async function decryptIntelWithKey(params: {
+  ciphertext: string;
+  keyBytes: Uint8Array;
+}): Promise<string> {
+  const { ciphertext, keyBytes } = params;
+  if (!ciphertext) {
+    throw new Error("Ciphertext is empty");
+  }
+  if (!keyBytes?.length) {
+    throw new Error("Symmetric key is missing");
+  }
+  if (![16, 24, 32].includes(keyBytes.length)) {
+    throw new Error("Symmetric key must be 128, 192, or 256 bits (16, 24, or 32 bytes)");
+  }
+
+  const packed = hexToBytes(ciphertext);
+  if (packed.length <= 12) {
+    throw new Error("Ciphertext is too short to contain IV + data");
+  }
+
+  const ivBytes = packed.slice(0, 12);
+  const cipherBytes = packed.slice(12);
+
+  const cryptoApi = getCrypto();
+  const subtle = cryptoApi.subtle;
+  const aesKey = await subtle.importKey("raw", keyBytes, "AES-GCM", false, ["decrypt"]);
+  const plainBuffer = await subtle.decrypt({ name: "AES-GCM", iv: ivBytes }, aesKey, cipherBytes);
+  return new TextDecoder().decode(plainBuffer);
+}

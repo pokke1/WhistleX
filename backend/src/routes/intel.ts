@@ -25,7 +25,6 @@ router.get("/:poolId", async (req: Request, res: Response) => {
     .from("intel_blobs")
     .select("ciphertext, messagekit")
     .eq("poolid", poolId)
-    .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
