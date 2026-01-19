@@ -9,11 +9,12 @@ router.get("/", async (_req: Request, res: Response) => {
   if (error) {
     return res.status(500).json({ error: error.message });
   }
-  return res.json(data || []);
+  const normalized = (data || []).map(fromDbPool);
+  return res.json(normalized);
 });
 
 router.post("/", async (req: Request, res: Response) => {
-  const { id, investigator, threshold, minContributionForDecrypt, deadline, ciphertext } = req.body;
+  const { id, investigator, threshold, minContributionForDecrypt, deadline, ciphertext, title, description } = req.body;
   if (!id || !investigator || !threshold || !minContributionForDecrypt || !deadline || !ciphertext) {
     return res
       .status(400)
@@ -23,13 +24,62 @@ router.post("/", async (req: Request, res: Response) => {
   const policy = buildCanonicalPolicy(id, minContributionForDecrypt);
   const { error } = await supabase
     .from("pools")
-    .upsert({ id, investigator, threshold, minContributionForDecrypt, policyId: JSON.stringify(policy), deadline, ciphertext });
+    .upsert(
+      toDbPool({
+        id,
+        investigator,
+        threshold,
+        minContributionForDecrypt,
+        policyId: JSON.stringify(policy),
+        deadline,
+        ciphertext,
+        title,
+        description
+      })
+    );
 
   if (error) {
     return res.status(500).json({ error: error.message });
   }
 
-  return res.json({ id, investigator, threshold, minContributionForDecrypt, deadline, ciphertext, policy });
+  return res.json({ id, investigator, threshold, minContributionForDecrypt, deadline, ciphertext, policy, title, description });
 });
+
+function toDbPool(payload: {
+  id: string;
+  investigator: string;
+  threshold: string;
+  minContributionForDecrypt: string;
+  policyId?: string;
+  deadline?: string;
+  ciphertext?: string;
+  factoryAddress?: string;
+  title?: string;
+  description?: string;
+}) {
+  const { minContributionForDecrypt, factoryAddress, policyId, ...rest } = payload;
+  return {
+    ...rest,
+    mincontributionfordecrypt: minContributionForDecrypt,
+    factoryaddress: factoryAddress,
+    policyid: policyId
+  };
+}
+
+function fromDbPool(row: any) {
+  if (!row) return row;
+  const {
+    mincontributionfordecrypt,
+    factoryaddress,
+    policyid,
+    ...rest
+  } = row;
+  return {
+    ...rest,
+    minContributionForDecrypt: mincontributionfordecrypt,
+    factoryAddress: factoryaddress,
+    policyId: policyid
+  };
+}
 
 export default router;

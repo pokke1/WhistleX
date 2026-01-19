@@ -13,6 +13,19 @@ const app = express();
 app.use(express.json());
 app.use(morgan("dev"));
 
+// Lightweight CORS handler so the Next.js frontend (localhost:3000) can call the API
+const allowedOrigin = process.env.FRONTEND_ORIGIN || "*";
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") {
+    res.sendStatus(204);
+    return;
+  }
+  if (next) next();
+});
+
 app.get("/health", (_req: Request, res: Response) => res.json({ status: "ok" }));
 app.use("/pools", poolsRouter);
 app.use("/intel", intelRouter);

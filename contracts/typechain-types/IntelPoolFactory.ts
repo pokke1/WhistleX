@@ -25,7 +25,7 @@ import type {
 
 export interface IntelPoolFactoryInterface extends Interface {
   getFunction(
-    nameOrSignature: "allPools" | "createPool" | "poolsCount"
+    nameOrSignature: "allPools" | "createPool" | "currency" | "poolsCount"
   ): FunctionFragment;
 
   getEvent(nameOrSignatureOrTopic: "PoolCreated"): EventFragment;
@@ -38,6 +38,7 @@ export interface IntelPoolFactoryInterface extends Interface {
     functionFragment: "createPool",
     values: [BigNumberish, BigNumberish, BigNumberish, BytesLike]
   ): string;
+  encodeFunctionData(functionFragment: "currency", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "poolsCount",
     values?: undefined
@@ -45,6 +46,7 @@ export interface IntelPoolFactoryInterface extends Interface {
 
   decodeFunctionResult(functionFragment: "allPools", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "createPool", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "currency", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "poolsCount", data: BytesLike): Result;
 }
 
@@ -135,6 +137,8 @@ export interface IntelPoolFactory extends BaseContract {
     "nonpayable"
   >;
 
+  currency: TypedContractMethod<[], [string], "view">;
+
   poolsCount: TypedContractMethod<[], [bigint], "view">;
 
   getFunction<T extends ContractMethod = ContractMethod>(
@@ -156,6 +160,9 @@ export interface IntelPoolFactory extends BaseContract {
     [string],
     "nonpayable"
   >;
+  getFunction(
+    nameOrSignature: "currency"
+  ): TypedContractMethod<[], [string], "view">;
   getFunction(
     nameOrSignature: "poolsCount"
   ): TypedContractMethod<[], [bigint], "view">;

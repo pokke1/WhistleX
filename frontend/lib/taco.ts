@@ -17,6 +17,7 @@ interface EncryptWithTacoParams {
   conditionChainId?: number;
   ritualId?: number;
   messageKit?: string;
+  payload?: string | Uint8Array; // data to wrap (defaults to TACo private key)
 }
 
 export const DEFAULT_TACO_PRIVATE_KEY = TESTNET_PRIVATE_KEY;
@@ -112,7 +113,7 @@ export function buildTacoCondition(
 
   return {
     method: "canDecrypt",
-    parameters: [":userAddress"],
+    parameters: [":contributor"],
     functionAbi: canDecryptAbi,
     contractAddress,
     chain: conditionChainId,
@@ -130,7 +131,8 @@ export async function encryptWithTaco({
   dkgRpcUrl,
   conditionRpcUrl,
   conditionChainId,
-  ritualId
+  ritualId,
+  payload
 }: EncryptWithTacoParams) {
   if (!poolAddress) {
     throw new Error("encryptWithTaco: poolAddress is required");
@@ -195,10 +197,10 @@ export async function encryptWithTaco({
     ]
   };
 
-  // Single contract condition: IntelPool.canDecrypt(:userAddress) == true
+  // Single contract condition: IntelPool.canDecrypt(:contributor) == true
   const conditionInstance = new ContractCondition({
     method: "canDecrypt",
-    parameters: [":userAddress"],
+    parameters: [":contributor"],
     functionAbi: canDecryptAbi,
     contractAddress,
     chain: conditionChain,
@@ -218,10 +220,17 @@ export async function encryptWithTaco({
     );
   }
 
+  const payloadBytes =
+    payload instanceof Uint8Array
+      ? payload
+      : typeof payload === "string"
+        ? encodePayload(payload)
+        : encodePayload(key);
+
   const kit = await encrypt(
     dkgProvider,
     domains.TESTNET || domains.tapir,
-    key,
+    payloadBytes,
     conditionInstance,
     ritual,
     encryptorWallet
@@ -240,8 +249,9 @@ export async function decryptWithTaco({
   conditionRpcUrl,
   conditionChainId,
   ritualId,
-  messageKit
-}: EncryptWithTacoParams & { messageKit: string }) {
+  messageKit,
+  contributorAddress
+}: EncryptWithTacoParams & { messageKit: string; contributorAddress?: string }) {
   if (!messageKit) {
     throw new Error("decryptWithTaco: messageKit is required");
   }
@@ -281,7 +291,10 @@ export async function decryptWithTaco({
 
   const context = ConditionContext.fromMessageKit(kit);
   context.addCustomContextParameterValues({
-    userAddress: decryptorWallet.address
+    // TACo nodes require checksum addresses; sanitize with ethers utils
+    ":contributor": contributorAddress
+      ? (await import("ethers")).utils.getAddress(contributorAddress)
+      : decryptorWallet.address
   });
 
   const decryptedBytes: Uint8Array = await decrypt(
@@ -293,4 +306,21 @@ export async function decryptWithTaco({
   );
 
   return new TextDecoder().decode(decryptedBytes);
+}
+
+function encodePayload(data: string): Uint8Array {
+  const normalized = data.trim();
+  const hexMatch = normalized.match(/^0x[0-9a-fA-F]+$/);
+  if (hexMatch) {
+    const hex = normalized.slice(2);
+    if (hex.length % 2 !== 0) {
+      throw new Error("Payload hex must have even length");
+    }
+    const bytes = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < hex.length; i += 2) {
+      bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
+    }
+    return bytes;
+  }
+  return new TextEncoder().encode(normalized);
 }

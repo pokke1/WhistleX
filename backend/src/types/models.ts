@@ -4,6 +4,8 @@ export interface PoolRecord {
   threshold: string;
   minContributionForDecrypt: string;
   factoryAddress: string;
+  title?: string;
+  description?: string;
   policyId?: string;
   deadline?: string;
   ciphertext?: string;

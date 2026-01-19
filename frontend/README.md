@@ -1,19 +1,32 @@
 # WhistleX Frontend
 
-Next.js 14 UI for the WhistleX marketplace. Includes investigator pool creation and contributor viewing flows.
+Next.js 14 UI for investigators to create intel pools and for contributors to fund and unlock them.
 
-## Development
+## Setup
+
+1) Install dependencies:
 
 ```sh
 cd frontend
 npm install
+```
+
+2) Configure environment (`frontend/.env`, see `.env.example`):
+
+- `NEXT_PUBLIC_BACKEND_URL` (e.g., `http://localhost:4000`)
+- `NEXT_PUBLIC_FACTORY_ADDRESS` from your contract deployment
+- `NEXT_PUBLIC_USDC_ADDRESS` and optional `NEXT_PUBLIC_USDC_DECIMALS` (default 6) for the pool currency
+- TACo/testnet defaults to keep or override: `NEXT_PUBLIC_AMOY_RPC_URL`, `AMOY_RPC_URL`, `NEXT_PUBLIC_TACO_DKG_RPC_URL`, `NEXT_PUBLIC_TACO_CONDITION_CHAIN_ID`, `NEXT_PUBLIC_TACO_RITUAL_ID`, `NEXT_PUBLIC_TACO_PRIVATE_KEY`, `NEXT_PUBLIC_DEVELOPER_KEY`
+
+3) Start the app:
+
+```sh
 npm run dev
 ```
 
-Set `NEXT_PUBLIC_BACKEND_URL` to point at the Express service.
+Open `http://localhost:3000` in your browser.
 
-## TACo + Sepolia test key
+## Notes
 
-The app uses the shared Sepolia TACo/deployer private key defined in `../shared/testnet.ts` when encrypting investigator keys. Update that file (and redeploy contracts) before moving beyond testnet. The frontend still requires `NEXT_PUBLIC_FACTORY_ADDRESS` to know which factory to call on Sepolia.
-
-`frontend/.env.example` is prefilled with the sample CLI settings (Sepolia RPC + Polygon Amoy DKG RPC + ritual ID 6 + the demo private key). If you leave `.env` empty, those values are used automatically; populate `.env` to override them for mainnet or a different key.
+- Uses `@nucypher/taco@0.6.0` with `ethers@5.7.2`; no extra install flags are needed.
+- `.env.example` points to Polygon Amoy and the shared demo key in `../shared/testnet.ts`. Replace these values for any real deployment.

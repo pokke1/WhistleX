@@ -7,6 +7,8 @@ export interface PoolPayload {
   minContributionForDecrypt: string;
   deadline: string;
   ciphertext: string;
+  title?: string;
+  description?: string;
 }
 
 export async function fetchPools() {

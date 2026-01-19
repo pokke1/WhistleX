@@ -39,7 +39,7 @@ export function buildCanonicalPolicy(poolAddress: string, minContribution: strin
           chain: "base",
           address: poolAddress,
           function: "contributionOf",
-          args: [":userAddress"],
+          args: [":contributor"],
           comparator: ">=",
           value: minContribution
         }

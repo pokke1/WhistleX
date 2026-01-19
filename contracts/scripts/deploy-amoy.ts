@@ -1,21 +1,25 @@
 import { ethers } from "hardhat";
 
-const DEFAULT_THRESHOLD = ethers.parseEther("1");
-const DEFAULT_MIN_CONTRIBUTION = ethers.parseEther("0.1");
+const DEFAULT_THRESHOLD = ethers.parseUnits("1000", 6);
+const DEFAULT_MIN_CONTRIBUTION = ethers.parseUnits("100", 6);
 const ONE_WEEK_IN_SECONDS = 7 * 24 * 60 * 60;
 const DEFAULT_DEADLINE = Math.floor(Date.now() / 1000) + ONE_WEEK_IN_SECONDS;
-const DEFAULT_CIPHERTEXT = ethers.toUtf8Bytes(
-  "placeholder ciphertext for TACo demo"
-);
+const DEFAULT_CIPHERTEXT = ethers.toUtf8Bytes("placeholder ciphertext for TACo demo");
 
 async function main() {
   const [deployer] = await ethers.getSigners();
   const network = await ethers.provider.getNetwork();
 
+  const currencyAddress = process.env.CURRENCY_ADDRESS || process.env.USDC_ADDRESS;
+  if (!currencyAddress) {
+    throw new Error("Set CURRENCY_ADDRESS (or USDC_ADDRESS) to your MockUSDC token before deploying pools.");
+  }
+
   console.log("Deploying contracts with account:", deployer.address);
   console.log("Network:", network.name || "polygon-amoy", "(chain id:", network.chainId, ")");
+  console.log("Using currency:", currencyAddress);
 
-  const factory = await ethers.deployContract("IntelPoolFactory");
+  const factory = await ethers.deployContract("IntelPoolFactory", [currencyAddress]);
   await factory.waitForDeployment();
   const factoryAddress = await factory.getAddress();
 

@@ -5,11 +5,14 @@ declare module "express" {
     body?: any;
     params?: Record<string, string>;
     query?: Record<string, string | string[]>;
+    method?: string;
   }
 
   export interface Response {
     status: (code: number) => Response;
     json: (body?: any) => Response;
+    setHeader: (name: string, value: string) => void;
+    sendStatus: (code: number) => Response;
   }
 
   export interface NextFunction {

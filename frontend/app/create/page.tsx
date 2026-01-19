@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createPool, uploadIntel } from "../../lib/api";
 import { createPoolOnchain, normalizeHex } from "../../lib/onchain";
 import { buildTacoCondition, encryptWithTaco } from "../../lib/taco";
+import SymmetricEncryptor from "./SymmetricEncryptor";
 
 function toUnixTimestamp(input: string) {
   const value = Date.parse(input);
@@ -14,21 +15,28 @@ function toUnixTimestamp(input: string) {
 export default function CreatePoolPage() {
   const [poolId, setPoolId] = useState("");
   const [investigator, setInvestigator] = useState("");
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [threshold, setThreshold] = useState("0");
   const [minContribution, setMinContribution] = useState("0");
   const [ciphertext, setCiphertext] = useState("");
+  const [intelKey, setIntelKey] = useState("");
   const [deadline, setDeadline] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [messageKit, setMessageKit] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setStatus("Submitting pool to Sepolia...");
+    setStatus("Submitting pool to Polygon Amoy...");
     setMessageKit(null);
 
     const deadlineTimestamp = toUnixTimestamp(deadline);
     if (!deadlineTimestamp) {
       setStatus("Deadline is invalid");
+      return;
+    }
+    if (!intelKey) {
+      setStatus("Symmetric key is missing. Generate or paste it before creating the pool.");
       return;
     }
 
@@ -47,7 +55,8 @@ export default function CreatePoolPage() {
 
       const kit = await encryptWithTaco({
         poolAddress: onchain.poolAddress,
-        minContributionForDecrypt: minContribution
+        minContributionForDecrypt: minContribution,
+        payload: intelKey // wrap the symmetric key with TACo
       });
 
       const policy = buildTacoCondition(onchain.poolAddress, minContribution);
@@ -59,7 +68,9 @@ export default function CreatePoolPage() {
         threshold,
         minContributionForDecrypt: minContribution,
         deadline: deadlineTimestamp,
-        ciphertext: normalizedCipher
+        ciphertext: normalizedCipher,
+        title,
+        description
       });
 
       await uploadIntel({ poolId: onchain.poolAddress, ciphertext: normalizedCipher, messageKit: kit });
@@ -72,23 +83,48 @@ export default function CreatePoolPage() {
   }
 
   return (
-    <main className="p-8 space-y-4">
-      <h1 className="text-2xl font-semibold">Investigator: create a TACo-protected Intel Pool</h1>
-      <p className="text-sm text-gray-700 max-w-3xl">
-        This flow creates a pool on Sepolia, embeds the encrypted ciphertext into the transaction calldata, and uses TACo on
-        Polygon Amoy to encrypt the investigator private key. The backend only indexes the ciphertext and MessageKit; the private
-        key never leaves the browser.
-      </p>
-      <p className="text-xs text-gray-600 max-w-3xl">
-        TACo encryption uses the shared Sepolia demo private key baked into the repo (see <code>shared/testnet.ts</code>). Replace it
-        before moving beyond testnet.
-      </p>
-      <form onSubmit={handleSubmit} className="space-y-3 max-w-3xl">
-        <div className="grid grid-cols-2 gap-3">
+    <main className="app-shell space-y-5">
+      <header className="top-bar">
+        <div>
+          <h1 className="title">Create a TACo-protected Intel Pool</h1>
+          <p className="subtitle">
+            Encrypt your intel locally, wrap the symmetric key with TACo, and publish a pool funded in USDC on Polygon Amoy.
+          </p>
+        </div>
+        <div className="pill">Investigator</div>
+      </header>
+
+      <div className="panel">
+        <SymmetricEncryptor
+          onCiphertextReady={(hex) => {
+            setCiphertext(hex);
+            setStatus("Ciphertext prepared locally. Continue with pool creation.");
+          }}
+          onKeyReady={(keyHex) => setIntelKey(keyHex)}
+        />
+      </div>
+
+      <form onSubmit={handleSubmit} className="panel space-y-4">
+        <div className="section-header">
+          <h2 className="section-title">Pool details</h2>
+          <span className="pill">USDC · Polygon Amoy</span>
+        </div>
+
+        <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
           <label className="block">
-            <span className="text-sm">Funding threshold (USDC, 6 decimals)</span>
+            <span className="muted">Title</span>
             <input
-              className="border rounded p-2 w-full"
+              className="input"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g., Insider report on protocol XYZ"
+              required
+            />
+          </label>
+          <label className="block">
+            <span className="muted">Funding threshold (USDC, 6 decimals)</span>
+            <input
+              className="input"
               value={threshold}
               onChange={(e) => setThreshold(e.target.value)}
               type="number"
@@ -98,9 +134,9 @@ export default function CreatePoolPage() {
             />
           </label>
           <label className="block">
-            <span className="text-sm">Minimum contribution to decrypt (USDC, 6 decimals)</span>
+            <span className="muted">Minimum contribution to decrypt (USDC, 6 decimals)</span>
             <input
-              className="border rounded p-2 w-full"
+              className="input"
               value={minContribution}
               onChange={(e) => setMinContribution(e.target.value)}
               type="number"
@@ -109,23 +145,35 @@ export default function CreatePoolPage() {
               required
             />
           </label>
+          <label className="block">
+            <span className="muted">Deadline</span>
+            <input
+              className="input"
+              type="datetime-local"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+              required
+            />
+          </label>
         </div>
 
         <label className="block">
-          <span className="text-sm">Deadline</span>
-          <input
-            className="border rounded p-2 w-full"
-            type="datetime-local"
-            value={deadline}
-            onChange={(e) => setDeadline(e.target.value)}
+          <span className="muted">Description</span>
+          <textarea
+            className="input"
+            style={{ minHeight: 120, width: "100%" }}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Context, scope, and what contributors can expect once unlocked."
             required
           />
         </label>
 
         <label className="block">
-          <span className="text-sm">Ciphertext (hex-encoded intel blob)</span>
+          <span className="muted">Ciphertext (hex-encoded intel blob)</span>
           <textarea
-            className="border rounded p-2 w-full min-h-[120px]"
+            className="input"
+            style={{ minHeight: 140, width: "100%" }}
             value={ciphertext}
             onChange={(e) => setCiphertext(e.target.value)}
             placeholder="0x..."
@@ -133,27 +181,28 @@ export default function CreatePoolPage() {
           />
         </label>
 
-        <button className="bg-blue-600 text-white px-4 py-2 rounded" type="submit">
-          Create pool and encrypt
-        </button>
+        <div className="input-row">
+          <button className="button cta" type="submit">
+            Create pool and encrypt
+          </button>
+          {status && <span className="muted">{status}</span>}
+        </div>
       </form>
 
       {poolId && (
-        <div className="bg-gray-100 rounded p-3 text-sm">
-          <p className="font-semibold">Pool deployed</p>
-          <p>Address: {poolId}</p>
-          <p>Investigator: {investigator}</p>
+        <div className="panel">
+          <p className="muted">Pool deployed</p>
+          <p className="subtitle">Address: {poolId}</p>
+          <p className="muted">Investigator: {investigator}</p>
         </div>
       )}
 
       {messageKit && (
-        <div className="bg-gray-50 border rounded p-3 text-sm">
-          <p className="font-semibold">TACo MessageKit</p>
-          <textarea className="w-full min-h-[100px] text-xs" readOnly value={messageKit} />
+        <div className="panel">
+          <p className="muted">TACo MessageKit</p>
+          <textarea className="input" style={{ width: "100%", minHeight: 100 }} readOnly value={messageKit} />
         </div>
       )}
-
-      {status && <p className="text-sm text-gray-700">{status}</p>}
     </main>
   );
 }

@@ -73,7 +73,15 @@ async function handleFactoryEvents(
         ciphertext: ethers.hexlify(ciphertext)
       };
 
-      await supabase.from("pools").upsert(payload);
+      await supabase.from("pools").upsert({
+        id: payload.id,
+        investigator: payload.investigator,
+        threshold: payload.threshold,
+        mincontributionfordecrypt: payload.minContributionForDecrypt,
+        factoryaddress: payload.factoryAddress,
+        deadline: payload.deadline,
+        ciphertext: payload.ciphertext
+      });
       console.log("Indexed PoolCreated", payload, event?.transactionHash);
 
       if (!poolListeners.has(pool)) {
@@ -106,7 +114,12 @@ async function handlePoolEvents(address: string, state: PoolListenerState, curre
         amount: amount.toString(),
         poolId: address
       };
-      await supabase.from("contributions").upsert(payload);
+      await supabase.from("contributions").upsert({
+        id: payload.id,
+        contributor: payload.contributor,
+        amount: payload.amount,
+        poolid: payload.poolId
+      });
       console.log("Indexed contribution", payload);
     }
 
