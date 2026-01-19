@@ -22,6 +22,10 @@ function formatAmount(value?: string, decimals: number = DEFAULT_DECIMALS) {
   }
 }
 
+function shortAddress(address: string) {
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
 interface Pool {
   id: string;
   investigator: string;
@@ -49,6 +53,12 @@ export default function HomePage() {
   const [onchainStateByPool, setOnchainStateByPool] = useState<Record<string, PoolOnchainState>>({});
   const [contributionInputs, setContributionInputs] = useState<Record<string, string>>({});
   const { walletAddress, connectWallet } = useWallet();
+  const unlockedPools = pools.filter((pool) => onchainStateByPool[pool.id]?.unlocked);
+  const recentlyListed = pools.slice(-6).reverse();
+  const tickerItems = [
+    ...recentlyListed.map((pool) => `Listed: ${pool.title || shortAddress(pool.id)}`),
+    ...unlockedPools.slice(0, 6).map((pool) => `Unlocked: ${pool.title || shortAddress(pool.id)}`)
+  ];
 
   useEffect(() => {
     fetchPools()
@@ -178,6 +188,29 @@ export default function HomePage() {
 
       {error && <div className="message"> {error} </div>}
 
+      <section className="ticker" aria-label="Live pool updates">
+        <div className="ticker-track">
+          <div className="ticker-group">
+            {(tickerItems.length ? tickerItems : ["Live updates will appear as pools list and unlock."]).map(
+              (item, index) => (
+                <span key={`ticker-${index}`} className="ticker-item">
+                  {item}
+                </span>
+              )
+            )}
+          </div>
+          <div className="ticker-group" aria-hidden="true">
+            {(tickerItems.length ? tickerItems : ["Live updates will appear as pools list and unlock."]).map(
+              (item, index) => (
+                <span key={`ticker-ghost-${index}`} className="ticker-item">
+                  {item}
+                </span>
+              )
+            )}
+          </div>
+        </div>
+      </section>
+
       <RecentUnlocks pools={pools} onchainStateByPool={onchainStateByPool} />
 
       <section className="panel">
@@ -205,7 +238,7 @@ export default function HomePage() {
               : "-";
 
             return (
-              <article key={pool.id} className="card">
+              <article key={pool.id} className="card pool-card">
                 <div className="stat-row">
                   <span className="tag">{onchain?.unlocked ? "Unlocked" : "Locked"}</span>
                   {onchain?.canDecrypt !== undefined && (
@@ -234,7 +267,12 @@ export default function HomePage() {
                 </div>
 
                 <p className="muted">Policy: {describePolicy(pool.policyId as any)}</p>
-                {pool.ciphertext && <p className="muted">Ciphertext: {pool.ciphertext}</p>}
+                {pool.ciphertext && (
+                  <div className="pool-ciphertext">
+                    <span className="muted">Ciphertext</span>
+                    <span className="mono">{pool.ciphertext}</span>
+                  </div>
+                )}
 
                 <div className="input-row">
                   <input
