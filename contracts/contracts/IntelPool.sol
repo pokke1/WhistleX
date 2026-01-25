@@ -28,6 +28,7 @@ contract IntelPool {
     event Contributed(address indexed contributor, uint256 amount, uint256 newTotal);
     event Unlocked(uint256 totalRaised);
     event Withdrawn(address indexed investigator, uint256 amount);
+    event Refunded(address indexed contributor, uint256 amount);
 
     constructor(
         address _currency,
@@ -86,6 +87,23 @@ contract IntelPool {
         emit Withdrawn(investigator, amount);
     }
 
+    /// @notice Contributors can reclaim funds if the threshold is not met after the deadline.
+    function refund() external {
+        require(!unlocked, "pool unlocked");
+        require(block.timestamp > deadline, "deadline not met");
+
+        uint256 amount = _contributions[msg.sender];
+        require(amount > 0, "nothing to refund");
+
+        _contributions[msg.sender] = 0;
+        totalContributions -= amount;
+
+        bool success = currency.transfer(msg.sender, amount);
+        require(success, "refund failed");
+
+        emit Refunded(msg.sender, amount);
+    }
+
     /// @return Returns the contribution amount for an address
     function contributionOf(address contributor) external view returns (uint256) {
         return _contributions[contributor];
@@ -94,6 +112,11 @@ contract IntelPool {
     /// @notice TACo helper: whether the pool is unlocked and caller meets contribution floor
     function canDecrypt(address contributor) external view returns (bool) {
         return unlocked && _contributions[contributor] >= minContributionForDecrypt;
+    }
+
+    /// @notice Helper: whether a contributor can claim a refund.
+    function canRefund(address contributor) external view returns (bool) {
+        return !unlocked && block.timestamp > deadline && _contributions[contributor] > 0;
     }
 
     /// @notice TACo helper: whether the pool is unlocked
