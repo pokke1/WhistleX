@@ -19,7 +19,18 @@ async function main() {
   console.log("Network:", network.name || "polygon-amoy", "(chain id:", network.chainId, ")");
   console.log("Using currency:", currencyAddress);
 
-  const factory = await ethers.deployContract("IntelPoolFactory", [currencyAddress]);
+  const feeData = await ethers.provider.getFeeData();
+  const minPriorityFee = ethers.parseUnits("25", "gwei");
+  const maxPriorityFeePerGas =
+    feeData.maxPriorityFeePerGas && feeData.maxPriorityFeePerGas > minPriorityFee
+      ? feeData.maxPriorityFeePerGas
+      : minPriorityFee;
+  const baseForMax = feeData.lastBaseFeePerGas || feeData.gasPrice || minPriorityFee;
+  const maxFeePerGas = baseForMax + maxPriorityFeePerGas;
+
+  const feeOverrides = { maxPriorityFeePerGas, maxFeePerGas, gasLimit: 1_500_000 };
+
+  const factory = await ethers.deployContract("IntelPoolFactory", [currencyAddress], feeOverrides);
   await factory.waitForDeployment();
   const factoryAddress = await factory.getAddress();
 
@@ -29,7 +40,8 @@ async function main() {
     DEFAULT_THRESHOLD,
     DEFAULT_MIN_CONTRIBUTION,
     DEFAULT_DEADLINE,
-    DEFAULT_CIPHERTEXT
+    DEFAULT_CIPHERTEXT,
+    feeOverrides
   );
   const receipt = await createTx.wait();
 

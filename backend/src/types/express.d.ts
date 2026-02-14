@@ -11,7 +11,10 @@ declare module "express" {
   export interface Response {
     status: (code: number) => Response;
     json: (body?: any) => Response;
+    send: (body?: any) => Response;
+    set: (name: string, value: string) => Response;
     setHeader: (name: string, value: string) => void;
+    type: (value: string) => Response;
     sendStatus: (code: number) => Response;
   }
 

@@ -27,6 +27,24 @@ app.use((req, res, next) => {
 });
 
 app.get("/health", (_req: Request, res: Response) => res.json({ status: "ok" }));
+app.post("/rpc", async (req: Request, res: Response) => {
+  const rpcUrl = process.env.AMOY_RPC_URL || process.env.RPC_URL;
+  if (!rpcUrl) {
+    return res.status(500).json({ error: "RPC URL not configured" });
+  }
+
+  try {
+    const upstream = await fetch(rpcUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(req.body)
+    });
+    const body = await upstream.text();
+    res.status(upstream.status).set("content-type", "application/json").send(body);
+  } catch (error: any) {
+    res.status(502).json({ error: error?.message || "RPC proxy failed" });
+  }
+});
 app.use("/pools", poolsRouter);
 app.use("/intel", intelRouter);
 
