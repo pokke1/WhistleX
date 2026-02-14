@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { fetchIntel, fetchPools } from "../lib/api";
-import { contributeToPool, fetchPoolState, PoolOnchainState } from "../lib/onchain";
+import { claimRefund, contributeToPool, fetchPoolState, PoolOnchainState } from "../lib/onchain";
 import { decryptWithTaco } from "../lib/taco";
 import { describePolicy } from "../lib/tacoClient";
 import { utils } from "ethers";
@@ -108,6 +108,18 @@ export default function HomePage() {
       await refreshPoolState(pool.id);
     } catch (err: any) {
       setStatusByPool((prev) => ({ ...prev, [pool.id]: err?.message || "Failed to contribute" }));
+    }
+  }
+
+  async function handleClaimRefund(pool: Pool) {
+    try {
+      await ensureWalletAddress();
+      setStatusByPool((prev) => ({ ...prev, [pool.id]: "Requesting refund..." }));
+      const { txHash } = await claimRefund(pool.id);
+      setStatusByPool((prev) => ({ ...prev, [pool.id]: `Refund claimed. Tx ${txHash}` }));
+      await refreshPoolState(pool.id);
+    } catch (err: any) {
+      setStatusByPool((prev) => ({ ...prev, [pool.id]: err?.message || "Failed to claim refund" }));
     }
   }
 
@@ -233,9 +245,15 @@ export default function HomePage() {
               ? formatAmount(onchain.minContributionForDecrypt, decimals)
               : pool.minContributionForDecrypt;
             const raisedDisplay = onchain ? formatAmount(onchain.totalContributions, decimals) : "-";
-            const deadlineLabel = pool.deadline
-              ? new Date(Number(pool.deadline) * 1000).toLocaleString()
-              : "-";
+            const deadlineValue = onchain?.deadline ?? pool.deadline;
+            const deadlineTimestamp = deadlineValue ? Number(deadlineValue) * 1000 : undefined;
+            const deadlineLabel = deadlineTimestamp ? new Date(deadlineTimestamp).toLocaleString() : "-";
+            const deadlinePassed = deadlineTimestamp ? Date.now() > deadlineTimestamp : false;
+            const thresholdMet = Boolean(onchain?.unlocked);
+            const hasContribution = onchain?.userContribution
+              ? BigInt(onchain.userContribution) > 0n
+              : false;
+            const canClaimRefund = Boolean(deadlinePassed && !thresholdMet && !onchain?.unlocked && hasContribution);
 
             return (
               <article key={pool.id} className="card pool-card">
@@ -275,42 +293,60 @@ export default function HomePage() {
                 )}
 
                 <div className="input-row">
-                  <input
-                    className="input"
-                    placeholder={`Amount (${CURRENCY_SYMBOL})`}
-                    type="number"
-                    min="0"
-                    step="0.000001"
-                    value={contributionInputs[pool.id] || ""}
-                    onChange={(e) => setContributionInputs((prev) => ({ ...prev, [pool.id]: e.target.value }))}
-                  />
-                  <button
-                    className="button cta"
-                    onClick={() => handleContribute(pool)}
-                    disabled={!contributionInputs[pool.id]}
-                  >
-                    Contribute
-                  </button>
-                  <button className="button" onClick={() => handleFetchIntel(pool.id)}>
-                    Load intel
-                  </button>
-                  <button
-                    className="button"
-                    disabled={!intel || (onchain && !onchain.unlocked)}
-                    onClick={() => handleDecrypt(pool)}
-                  >
-                    Request TACo key
-                  </button>
-                  <button
-                    className="button"
-                    disabled={!intel || !decrypted}
-                    onClick={() => handleDecryptIntel(pool)}
-                  >
-                    Decrypt intel
-                  </button>
-                  <Link className="button" href={`/pool/${pool.id}`}>
-                    View details
-                  </Link>
+                  {deadlinePassed && !thresholdMet ? (
+                    <button
+                      className="button tiny"
+                      onClick={() => handleClaimRefund(pool)}
+                      disabled={!canClaimRefund}
+                    >
+                      Claim refund
+                    </button>
+                  ) : (
+                    <>
+                      {!thresholdMet && (
+                        <>
+                          <input
+                            className="input"
+                            placeholder={`Amount (${CURRENCY_SYMBOL})`}
+                            type="number"
+                            min="0"
+                            step="0.000001"
+                            value={contributionInputs[pool.id] || ""}
+                            onChange={(e) => setContributionInputs((prev) => ({ ...prev, [pool.id]: e.target.value }))}
+                          />
+                          <button
+                            className="button cta"
+                            onClick={() => handleContribute(pool)}
+                            disabled={!contributionInputs[pool.id]}
+                          >
+                            Contribute
+                          </button>
+                        </>
+                      )}
+                      <button className="button" onClick={() => handleFetchIntel(pool.id)}>
+                        Load intel
+                      </button>
+                      {thresholdMet && (
+                        <button
+                          className="button"
+                          disabled={!intel || (onchain && !onchain.unlocked)}
+                          onClick={() => handleDecrypt(pool)}
+                        >
+                          Request TACo key
+                        </button>
+                      )}
+                      <button
+                        className="button"
+                        disabled={!intel || !decrypted}
+                        onClick={() => handleDecryptIntel(pool)}
+                      >
+                        Decrypt intel
+                      </button>
+                      <Link className="button" href={`/pool/${pool.id}`}>
+                        View details
+                      </Link>
+                    </>
+                  )}
                 </div>
 
                 {status && <span className="muted">{status}</span>}

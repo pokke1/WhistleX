@@ -18,7 +18,9 @@ const poolAbi = [
   "function minContributionForDecrypt() view returns (uint256)",
   "function unlocked() view returns (bool)",
   "function canDecrypt(address contributor) view returns (bool)",
-  "function contributionOf(address contributor) view returns (uint256)"
+  "function contributionOf(address contributor) view returns (uint256)",
+  "function deadline() view returns (uint256)",
+  "function refund()"
 ];
 
 const erc20Abi = [
@@ -46,6 +48,7 @@ export interface PoolOnchainState {
   totalContributions: string;
   threshold: string;
   minContributionForDecrypt: string;
+  deadline: string;
   unlocked: boolean;
   userContribution?: string;
   canDecrypt?: boolean;
@@ -141,13 +144,14 @@ export async function fetchPoolState(poolAddress: string, userAddress?: string):
   const provider = new providers.JsonRpcProvider(DEFAULT_AMOY_RPC_URL);
   const contract = new Contract(poolAddress, poolAbi, provider);
 
-  const [currency, currencyDecimals, totalContributions, threshold, minContributionForDecrypt, unlocked] =
+  const [currency, currencyDecimals, totalContributions, threshold, minContributionForDecrypt, deadline, unlocked] =
     await Promise.all([
       contract.currency(),
       contract.currencyDecimals(),
       contract.totalContributions(),
       contract.threshold(),
       contract.minContributionForDecrypt(),
+      contract.deadline(),
       contract.unlocked()
     ]);
   const decimalsNumber = Number(currencyDecimals);
@@ -170,6 +174,7 @@ export async function fetchPoolState(poolAddress: string, userAddress?: string):
     totalContributions: totalContributions.toString(),
     threshold: threshold.toString(),
     minContributionForDecrypt: minContributionForDecrypt.toString(),
+    deadline: deadline.toString(),
     unlocked,
     userContribution,
     canDecrypt
@@ -209,6 +214,27 @@ export async function contributeToPool(poolAddress: string, amountTokens: string
   }
 
   const tx = await pool.contribute(parsedAmount);
+  const receipt = await tx.wait();
+  return { txHash: receipt?.hash || tx.hash };
+}
+
+export async function claimRefund(poolAddress: string) {
+  if (typeof window === "undefined") {
+    throw new Error("window is not available");
+  }
+
+  const ethereum = getActiveProvider();
+  if (!ethereum) {
+    throw new Error("Wallet provider not found. Please install MetaMask, Phantom, or another EVM wallet.");
+  }
+
+  const provider = new providers.Web3Provider(ethereum);
+  await ensureAmoyNetwork(ethereum, provider);
+
+  const signer = provider.getSigner();
+  const pool = new Contract(poolAddress, poolAbi, signer);
+
+  const tx = await pool.refund();
   const receipt = await tx.wait();
   return { txHash: receipt?.hash || tx.hash };
 }
