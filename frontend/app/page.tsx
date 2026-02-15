@@ -116,6 +116,26 @@ export default function HomePage() {
     });
   }, [pools]);
 
+  useEffect(() => {
+    const rails = Array.from(document.querySelectorAll<HTMLElement>(".pool-slider-rail"));
+    if (rails.length === 0) return;
+
+    const handleWheel = (event: WheelEvent) => {
+      const rail = event.currentTarget as HTMLElement;
+      const slider = rail.querySelector<HTMLElement>(".pool-slider-track");
+      if (!slider) return;
+      if (Math.abs(event.deltaY) < Math.abs(event.deltaX)) return;
+      event.preventDefault();
+      slider.scrollLeft += event.deltaY;
+    };
+
+    rails.forEach((rail) => rail.addEventListener("wheel", handleWheel, { passive: false }));
+    return () => {
+      rails.forEach((rail) => rail.removeEventListener("wheel", handleWheel));
+    };
+  }, [pools, poolVisibilityFilter]);
+
+
   async function refreshPoolState(poolId: string) {
     try {
       const state = await fetchPoolState(poolId, walletAddress ?? undefined);
@@ -279,36 +299,89 @@ export default function HomePage() {
     const investigatorStars = ratingByInvestigator[pool.investigator.toLowerCase()] ?? 0;
     const statusLabel = thresholdMet ? "Unlocked" : isClosed ? "Expired" : "Locked";
     const voteSummary = voteSummaryByPool[pool.id] || { upvotes: 0, downvotes: 0 };
+    const voteDelta = voteSummary.upvotes - voteSummary.downvotes;
+    const voteTone = voteDelta > 0 ? "pill-positive" : voteDelta < 0 ? "pill-negative" : "pill-neutral";
+    const ratingTone = investigatorStars > 0 ? "pill-positive" : investigatorStars < 0 ? "pill-negative" : "pill-neutral";
+    const thresholdValue = onchain ? Number(utils.formatUnits(onchain.threshold, decimals)) : Number(pool.threshold);
+    const raisedValue = onchain ? Number(utils.formatUnits(onchain.totalContributions, decimals)) : 0;
+    const minContributionValue = onchain
+      ? Number(utils.formatUnits(onchain.minContributionForDecrypt, decimals))
+      : Number(pool.minContributionForDecrypt);
+    const progressPercent =
+      thresholdValue > 0 && Number.isFinite(raisedValue)
+        ? Math.min(100, Math.max(0, (raisedValue / thresholdValue) * 100))
+        : 0;
+    const minContributionPercent =
+      thresholdValue > 0 && Number.isFinite(minContributionValue)
+        ? Math.min(100, Math.max(0, (minContributionValue / thresholdValue) * 100))
+        : 0;
 
     return (
       <article key={pool.id} className="card pool-card">
-        <div className="stat-row">
-          <span className="tag">{statusLabel}</span>
-          {onchain?.canDecrypt !== undefined && (
-            <span className={`tag ${onchain.canDecrypt ? "" : "tag-warn"}`}>
-              {onchain.canDecrypt ? "Eligible to decrypt" : "Below decrypt floor"}
-            </span>
-          )}
-          {!isClosed && <span className="pill">Investigator rating: {investigatorStars.toFixed(2)} / 5</span>}
-          {isClosed && <span className="pill">Upvotes {voteSummary.upvotes} / Downvotes {voteSummary.downvotes}</span>}
+        <div className="pool-card-header">
+          <div className="pool-card-header-left">
+            <span className="tag">{statusLabel}</span>
+            {onchain?.canDecrypt !== undefined && (
+              <span className={`tag ${onchain.canDecrypt ? "" : "tag-warn"}`}>
+                {onchain.canDecrypt ? "Eligible to decrypt" : "Below decrypt floor"}
+              </span>
+            )}
+          </div>
+          <div className="pool-card-header-right">
+            {!isClosed && (
+              <>
+                <span className="pill deadline-pill">Deadline: {deadlineLabel}</span>
+                <span className={`pill ${ratingTone}`}>Investigator rating: {investigatorStars.toFixed(2)} / 5</span>
+              </>
+            )}
+            {isClosed && (
+              <>
+                <span className="pill deadline-pill">Deadline: {deadlineLabel}</span>
+                <span className={`pill vote-pill ${voteTone}`}>
+                  ^ {voteSummary.upvotes} / v {voteSummary.downvotes}
+                </span>
+              </>
+            )}
+          </div>
         </div>
 
-        <div>
+        <div
+          className="pool-card-body"
+          onClick={() => (window.location.href = `/pool/${pool.id}`)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              window.location.href = `/pool/${pool.id}`;
+            }
+          }}
+          role="link"
+          tabIndex={0}
+        >
           <p className="muted">Pool</p>
           <h3>{pool.title || pool.id}</h3>
           {pool.description && <p className="muted" style={{ marginTop: 4 }}>{pool.description}</p>}
           {!pool.title && <p className="muted" style={{ fontSize: 12 }}>{pool.id}</p>}
         </div>
 
-        <div className="stat-row">
-          <div className="stat">Threshold: {thresholdDisplay} {CURRENCY_SYMBOL}</div>
-          <div className="stat">Decrypt floor: {minContributionDisplay} {CURRENCY_SYMBOL}</div>
-          <div className="stat">Raised: {raisedDisplay} {CURRENCY_SYMBOL}</div>
+        <div className="pool-progress">
+          <div className="progress-track">
+            <div className="progress-fill" style={{ width: `${progressPercent}%` }} />
+            <div className="progress-marker" style={{ left: `${minContributionPercent}%` }} />
+          </div>
+          <div className="progress-meta">
+            <span className="stat">Raised: {raisedDisplay} {CURRENCY_SYMBOL}</span>
+            <span className="stat">Threshold: {thresholdDisplay} {CURRENCY_SYMBOL}</span>
+            <span className="stat">Decrypt floor: {minContributionDisplay} {CURRENCY_SYMBOL}</span>
+          </div>
         </div>
 
-        <div className="stat-row">
-          <div className="stat">Investigator: <Link href={`/profile/${pool.investigator.toLowerCase()}`}>{pool.investigator}</Link></div>
-          <div className="stat">Deadline: {deadlineLabel}</div>
+        <div className="pool-meta">
+          <div className="stat">
+            Investigator:{" "}
+            <Link className="stat-link" href={`/profile/${pool.investigator.toLowerCase()}`}>
+              {pool.investigator}
+            </Link>
+          </div>
         </div>
 
         <p className="muted">Policy: {describePolicy(pool.policyId as any)}</p>
@@ -319,7 +392,11 @@ export default function HomePage() {
           </div>
         )}
 
-        <div className="input-row">
+        <div
+          className="input-row"
+          onClick={(event) => event.stopPropagation()}
+          onMouseDown={(event) => event.stopPropagation()}
+        >
           {deadlinePassed && !thresholdMet ? (
             <button
               className="button tiny"
@@ -374,9 +451,6 @@ export default function HomePage() {
               >
                 Decrypt intel
               </button>
-              <Link className="button" href={`/pool/${pool.id}`}>
-                View details
-              </Link>
             </>
           )}
         </div>
@@ -450,7 +524,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      <RecentUnlocks pools={pools} onchainStateByPool={onchainStateByPool} />
 
       <section className="panel">
         <div className="section-header">
@@ -479,66 +552,30 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="panel">
-        <div className="section-header">
-          <h2 className="section-title">Open pools</h2>
-          <span className="pill">{visibleOpenPools.length} listed</span>
-        </div>
+      {poolVisibilityFilter !== "closed" && (
+        <section className="panel">
+          <div className="section-header">
+            <h2 className="section-title">Open pools</h2>
+            <span className="pill">{visibleOpenPools.length} listed</span>
+          </div>
 
-        {visibleOpenPools.length === 0 && <div className="message">No open pools for the selected filter.</div>}
-        <div className="grid">{visibleOpenPools.map(renderPoolCard)}</div>
-      </section>
-
-      <section className="panel">
-        <div className="section-header">
-          <h2 className="section-title">Closed pools</h2>
-          <span className="pill">{visibleClosedPools.length} listed</span>
-        </div>
-        {visibleClosedPools.length === 0 && <div className="message">No closed pools for the selected filter.</div>}
-        <div className="grid">{visibleClosedPools.map(renderPoolCard)}</div>
-      </section>
-    </main>
-  );
-}
-
-function RecentUnlocks({
-  pools,
-  onchainStateByPool
-}: {
-  pools: Pool[];
-  onchainStateByPool: Record<string, PoolOnchainState>;
-}) {
-  const unlocked = pools.filter((pool) => onchainStateByPool[pool.id]?.unlocked);
-
-  return (
-    <section className="panel">
-      <div className="section-header">
-        <h2 className="section-title">Recently unlocked</h2>
-        <span className="pill">{unlocked.length} ready</span>
-      </div>
-      {unlocked.length === 0 ? (
-        <div className="message">No pools unlocked yet. Contribute to push one over the line.</div>
-      ) : (
-        <div className="slider">
-          {unlocked.map((pool) => {
-            const onchain = onchainStateByPool[pool.id];
-            const decimals = onchain?.currencyDecimals ?? DEFAULT_DECIMALS;
-            const raisedDisplay = onchain ? formatAmount(onchain.totalContributions, decimals) : "-";
-            return (
-              <div key={pool.id} className="slider-card">
-                <p className="muted" style={{ margin: 0 }}>Pool</p>
-                <p style={{ margin: "4px 0 8px", fontWeight: 600 }}>{pool.id}</p>
-                <div className="stat-row">
-                  <span className="stat">Raised: {raisedDisplay} {CURRENCY_SYMBOL}</span>
-                </div>
-                <Link className="button cta" href={`/pool/${pool.id}`} style={{ marginTop: 10, display: "inline-block" }}>
-                  View pool
-                </Link>
-              </div>
-            );
-          })}
-        </div>
+          {visibleOpenPools.length === 0 && <div className="message">No open pools for the selected filter.</div>}
+          <div className="grid">{visibleOpenPools.map(renderPoolCard)}</div>
+        </section>
       )}
-    </section>
+
+      {poolVisibilityFilter !== "open" && (
+        <section className="panel">
+          <div className="section-header">
+            <h2 className="section-title">Closed pools</h2>
+            <span className="pill">{visibleClosedPools.length} listed</span>
+          </div>
+          {visibleClosedPools.length === 0 && <div className="message">No closed pools for the selected filter.</div>}
+          <div className="pool-slider-rail">
+            <div className="pool-slider-track">{visibleClosedPools.map(renderPoolCard)}</div>
+          </div>
+        </section>
+      )}
+    </main>
   );
 }
