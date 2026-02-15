@@ -52,6 +52,8 @@ export default function HomePage() {
   const [statusByPool, setStatusByPool] = useState<Record<string, string>>({});
   const [onchainStateByPool, setOnchainStateByPool] = useState<Record<string, PoolOnchainState>>({});
   const [contributionInputs, setContributionInputs] = useState<Record<string, string>>({});
+  const [cipherExpandedByPool, setCipherExpandedByPool] = useState<Record<string, boolean>>({});
+  const [investigatorExpandedByPool, setInvestigatorExpandedByPool] = useState<Record<string, boolean>>({});
   const [poolVisibilityFilter, setPoolVisibilityFilter] = useState<"all" | "open" | "closed">("all");
   const [ratingByInvestigator, setRatingByInvestigator] = useState<Record<string, number>>({});
   const [voteSummaryByPool, setVoteSummaryByPool] = useState<Record<string, { upvotes: number; downvotes: number }>>({});
@@ -302,6 +304,16 @@ export default function HomePage() {
     const voteDelta = voteSummary.upvotes - voteSummary.downvotes;
     const voteTone = voteDelta > 0 ? "pill-positive" : voteDelta < 0 ? "pill-negative" : "pill-neutral";
     const ratingTone = investigatorStars > 0 ? "pill-positive" : investigatorStars < 0 ? "pill-negative" : "pill-neutral";
+    const ratingNormalized = Math.max(0, Math.min(1, investigatorStars / 5));
+    const ratingBg = `rgba(${Math.round(12 + ratingNormalized * 78)}, ${Math.round(
+      18 + ratingNormalized * 190
+    )}, ${Math.round(28 + ratingNormalized * 130)}, 0.22)`;
+    const ratingBorder = `rgba(${Math.round(12 + ratingNormalized * 78)}, ${Math.round(
+      18 + ratingNormalized * 190
+    )}, ${Math.round(28 + ratingNormalized * 130)}, 0.55)`;
+    const ratingText = `rgb(${Math.round(120 + ratingNormalized * 50)}, ${Math.round(
+      120 + ratingNormalized * 90
+    )}, ${Math.round(140 + ratingNormalized * 40)})`;
     const thresholdValue = onchain ? Number(utils.formatUnits(onchain.threshold, decimals)) : Number(pool.threshold);
     const raisedValue = onchain ? Number(utils.formatUnits(onchain.totalContributions, decimals)) : 0;
     const minContributionValue = onchain
@@ -321,17 +333,46 @@ export default function HomePage() {
         <div className="pool-card-header">
           <div className="pool-card-header-left">
             <span className="tag">{statusLabel}</span>
-            {onchain?.canDecrypt !== undefined && (
-              <span className={`tag ${onchain.canDecrypt ? "" : "tag-warn"}`}>
-                {onchain.canDecrypt ? "Eligible to decrypt" : "Below decrypt floor"}
-              </span>
+            <button
+              className="investigator-toggle pill investigator-pill"
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setInvestigatorExpandedByPool((prev) => ({ ...prev, [pool.id]: !prev[pool.id] }));
+              }}
+            >
+              {investigatorExpandedByPool[pool.id] && <span className="muted">Investigator:</span>}
+              <Link
+                className="stat-link"
+                href={`/profile/${pool.investigator.toLowerCase()}`}
+                onClick={(event) => event.stopPropagation()}
+              >
+                {investigatorExpandedByPool[pool.id] ? pool.investigator : shortAddress(pool.investigator)}
+              </Link>
+            </button>
+            {onchain?.canDecrypt !== undefined && !isClosed && (
+              <div className="decrypt-fold-wrap">
+                <div
+                  className={`decrypt-fold ${onchain.canDecrypt ? "decrypt-fold-ok" : "decrypt-fold-warn"}`}
+                />
+                <div className="decrypt-fold-tooltip">
+                  {onchain.canDecrypt
+                    ? "Eligible to decrypt once the pool unlocks."
+                    : "Your contribution is below the decrypt floor. Contribute to get access to the secret."}
+                </div>
+              </div>
             )}
           </div>
           <div className="pool-card-header-right">
             {!isClosed && (
               <>
                 <span className="pill deadline-pill">Deadline: {deadlineLabel}</span>
-                <span className={`pill ${ratingTone}`}>Investigator rating: {investigatorStars.toFixed(2)} / 5</span>
+                <span
+                  className={`pill ${ratingTone}`}
+                  style={{ background: ratingBg, borderColor: ratingBorder, color: ratingText }}
+                >
+                  Investigator rating: {investigatorStars.toFixed(2)} / 5
+                </span>
               </>
             )}
             {isClosed && (
@@ -361,34 +402,53 @@ export default function HomePage() {
           <h3>{pool.title || pool.id}</h3>
           {pool.description && <p className="muted" style={{ marginTop: 4 }}>{pool.description}</p>}
           {!pool.title && <p className="muted" style={{ fontSize: 12 }}>{pool.id}</p>}
+
+          <div className="pool-progress">
+            <div className="progress-track">
+              <div className="progress-fill" style={{ width: `${progressPercent}%` }} />
+              <div className="progress-marker" style={{ left: `${minContributionPercent}%` }} />
+            </div>
+          </div>
+
+          <div className="pool-meta" />
         </div>
 
-        <div className="pool-progress">
-          <div className="progress-track">
-            <div className="progress-fill" style={{ width: `${progressPercent}%` }} />
-            <div className="progress-marker" style={{ left: `${minContributionPercent}%` }} />
-          </div>
-          <div className="progress-meta">
-            <span className="stat">Raised: {raisedDisplay} {CURRENCY_SYMBOL}</span>
-            <span className="stat">Threshold: {thresholdDisplay} {CURRENCY_SYMBOL}</span>
-            <span className="stat">Decrypt floor: {minContributionDisplay} {CURRENCY_SYMBOL}</span>
-          </div>
+        <div className="progress-meta">
+          <span className="stat">Raised: {raisedDisplay} {CURRENCY_SYMBOL}</span>
+          <span className="stat">Threshold: {thresholdDisplay} {CURRENCY_SYMBOL}</span>
+          <span className="stat">Decrypt floor: {minContributionDisplay} {CURRENCY_SYMBOL}</span>
         </div>
 
-        <div className="pool-meta">
-          <div className="stat">
-            Investigator:{" "}
-            <Link className="stat-link" href={`/profile/${pool.investigator.toLowerCase()}`}>
-              {pool.investigator}
-            </Link>
-          </div>
-        </div>
-
-        <p className="muted">Policy: {describePolicy(pool.policyId as any)}</p>
+        <p className="muted">
+          Policy: {describePolicy(pool.policyId as any)}
+        </p>
         {pool.ciphertext && (
           <div className="pool-ciphertext">
-            <span className="muted">Ciphertext</span>
-            <span className="mono">{pool.ciphertext}</span>
+            <button
+              className="cipher-toggle"
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setCipherExpandedByPool((prev) => ({ ...prev, [pool.id]: !prev[pool.id] }));
+              }}
+            >
+              <span className="muted">Ciphertext</span>
+              <span className="pill">{cipherExpandedByPool[pool.id] ? "Hide" : "Show"}</span>
+            </button>
+            {cipherExpandedByPool[pool.id] && <span className="mono">{pool.ciphertext}</span>}
+          </div>
+        )}
+
+        {isClosed && onchain?.canDecrypt !== undefined && (
+          <div className="decrypt-fold-wrap">
+            <div
+              className={`decrypt-fold ${onchain.canDecrypt ? "decrypt-fold-ok" : "decrypt-fold-warn"}`}
+            />
+            <div className="decrypt-fold-tooltip">
+              {onchain.canDecrypt
+                ? "Eligible to decrypt: you contributed enough."
+                : "Your contribution is below the decrypt floor and the pool is closed. You cannot decrypt."}
+            </div>
           </div>
         )}
 
@@ -414,7 +474,7 @@ export default function HomePage() {
                     placeholder={`Amount (${CURRENCY_SYMBOL})`}
                     type="number"
                     min="0"
-                    step="0.000001"
+                    step="1"
                     value={contributionInputs[pool.id] || ""}
                     onChange={(e) => setContributionInputs((prev) => ({ ...prev, [pool.id]: e.target.value }))}
                   />
@@ -432,25 +492,29 @@ export default function HomePage() {
                   Claim funds
                 </button>
               )}
-              <button className="button" onClick={() => handleFetchIntel(pool.id)}>
-                Load intel
-              </button>
-              {thresholdMet && (
-                <button
-                  className="button"
-                  disabled={!intel || (onchain && !onchain.unlocked)}
-                  onClick={() => handleDecrypt(pool)}
-                >
-                  Request TACo key
-                </button>
+              {onchain?.canDecrypt && !deadlinePassed && (
+                <>
+                  <button className="button" onClick={() => handleFetchIntel(pool.id)}>
+                    Load intel
+                  </button>
+                  {thresholdMet && (
+                    <button
+                      className="button"
+                      disabled={!intel || (onchain && !onchain.unlocked)}
+                      onClick={() => handleDecrypt(pool)}
+                    >
+                      Request TACo key
+                    </button>
+                  )}
+                  <button
+                    className="button"
+                    disabled={!intel || !decrypted}
+                    onClick={() => handleDecryptIntel(pool)}
+                  >
+                    Decrypt intel
+                  </button>
+                </>
               )}
-              <button
-                className="button"
-                disabled={!intel || !decrypted}
-                onClick={() => handleDecryptIntel(pool)}
-              >
-                Decrypt intel
-              </button>
             </>
           )}
         </div>
@@ -527,28 +591,30 @@ export default function HomePage() {
 
       <section className="panel">
         <div className="section-header">
-          <h2 className="section-title">Marketplace filters</h2>
-          <span className="pill">{pools.length} total</span>
-        </div>
-        <div className="input-row">
-          <button
-            className={`button ${poolVisibilityFilter === "all" ? "cta" : ""}`}
-            onClick={() => setPoolVisibilityFilter("all")}
-          >
-            All
-          </button>
-          <button
-            className={`button ${poolVisibilityFilter === "open" ? "cta" : ""}`}
-            onClick={() => setPoolVisibilityFilter("open")}
-          >
-            Open
-          </button>
-          <button
-            className={`button ${poolVisibilityFilter === "closed" ? "cta" : ""}`}
-            onClick={() => setPoolVisibilityFilter("closed")}
-          >
-            Closed
-          </button>
+          <div className="section-title-row">
+            <h2 className="section-title">Marketplace filters</h2>
+            <span className="pill">{pools.length} total</span>
+          </div>
+          <div className="input-row">
+            <button
+              className={`button ${poolVisibilityFilter === "all" ? "cta" : ""}`}
+              onClick={() => setPoolVisibilityFilter("all")}
+            >
+              All
+            </button>
+            <button
+              className={`button ${poolVisibilityFilter === "open" ? "cta" : ""}`}
+              onClick={() => setPoolVisibilityFilter("open")}
+            >
+              Open
+            </button>
+            <button
+              className={`button ${poolVisibilityFilter === "closed" ? "cta" : ""}`}
+              onClick={() => setPoolVisibilityFilter("closed")}
+            >
+              Closed
+            </button>
+          </div>
         </div>
       </section>
 

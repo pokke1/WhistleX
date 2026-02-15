@@ -56,39 +56,41 @@ export default function SymmetricEncryptor({ onCiphertextReady, onKeyReady }: Sy
   }
 
   return (
-    <section className="space-y-3 border rounded p-4 bg-gray-50">
-      <div className="flex items-center justify-between">
+    <section className="panel space-y-3">
+      <div className="section-header">
         <div>
-          <h2 className="text-lg font-semibold">Encrypt intel locally</h2>
-          <p className="text-sm text-gray-700">
+          <h2 className="section-title">Encrypt intel locally</h2>
+          <p className="muted">
             Generate a symmetric key, encrypt your intel in the browser, and paste the ciphertext into the pool form. The key
             stays local; wrap it with TACo after the backend returns a policy.
           </p>
         </div>
-        <button className="bg-gray-800 text-white px-3 py-1 rounded" onClick={handleGenerateKey} type="button">
+        <button className="button" onClick={handleGenerateKey} type="button">
           Generate key
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
         <label className="block">
-          <span className="text-sm">Symmetric key (hex or base64)</span>
+          <span className="muted">Symmetric key (hex or base64)</span>
           <textarea
-            className="border rounded p-2 w-full min-h-[80px] font-mono text-xs"
+            className="input mono"
+            style={{ minHeight: 90, width: "100%" }}
             value={keyInput}
             onChange={(e) => setKeyInput(e.target.value)}
             placeholder="0x..."
           />
           {keyBase64 && (
-            <p className="text-xs text-gray-600 break-all mt-1">
-              Base64 version (copy if needed for TACo wrapping): {keyBase64}
+            <p className="muted" style={{ marginTop: 6 }}>
+              Base64 version (copy if needed for TACo wrapping): <span className="mono">{keyBase64}</span>
             </p>
           )}
         </label>
         <label className="block">
-          <span className="text-sm">Intel to encrypt</span>
+          <span className="muted">Intel to encrypt</span>
           <textarea
-            className="border rounded p-2 w-full min-h-[80px]"
+            className="input"
+            style={{ minHeight: 90, width: "100%" }}
             value={plaintext}
             onChange={(e) => setPlaintext(e.target.value)}
             placeholder="Paste the plaintext intel here. It never leaves your browser."
@@ -96,29 +98,31 @@ export default function SymmetricEncryptor({ onCiphertextReady, onKeyReady }: Sy
         </label>
       </div>
 
-      <div className="flex gap-3">
+      <div className="input-row">
         <button
-          className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
+          className="button cta"
           disabled={!plaintext || !(keyInput || keyBase64)}
           onClick={handleEncrypt}
           type="button"
         >
           Encrypt intel
         </button>
-        {status && <span className="text-sm text-gray-700">{status}</span>}
-        {error && <span className="text-sm text-red-600">{error}</span>}
+        {status && <span className="muted">{status}</span>}
+        {error && <span className="muted" style={{ color: "#ff6f91" }}>{error}</span>}
       </div>
 
       {ciphertext && (
         <div className="space-y-2">
           <div>
-            <p className="text-sm font-semibold">Ciphertext (hex, IV prefixed; paste into pool creation)</p>
-            <textarea className="w-full min-h-[80px] text-xs font-mono" readOnly value={ciphertext} />
+            <p className="muted" style={{ fontWeight: 600 }}>
+              Ciphertext (hex, IV prefixed; paste into pool creation)
+            </p>
+            <textarea className="input mono" style={{ width: "100%", minHeight: 90 }} readOnly value={ciphertext} />
           </div>
-          <p className="text-xs text-gray-700">
-            IV (hex): <span className="font-mono break-all">{ivHex}</span>
+          <p className="muted">
+            IV (hex): <span className="mono">{ivHex}</span>
           </p>
-          <p className="text-xs text-gray-700">
+          <p className="muted">
             Reminder: store the symmetric key securely and only send it to TACo once you receive the policy from the backend.
           </p>
         </div>

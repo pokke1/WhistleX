@@ -13,6 +13,7 @@ function toUnixTimestamp(input: string) {
 }
 
 export default function CreatePoolPage() {
+  const CURRENCY_SYMBOL = "USDC";
   const [poolId, setPoolId] = useState("");
   const [investigator, setInvestigator] = useState("");
   const [title, setTitle] = useState("");
@@ -24,6 +25,16 @@ export default function CreatePoolPage() {
   const [deadline, setDeadline] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [messageKit, setMessageKit] = useState<string | null>(null);
+  const thresholdValue = Number(threshold);
+  const minContributionValue = Number(minContribution);
+  const progressPercent =
+    thresholdValue > 0 && Number.isFinite(thresholdValue)
+      ? Math.min(100, Math.max(0, (0 / thresholdValue) * 100))
+      : 0;
+  const minContributionPercent =
+    thresholdValue > 0 && Number.isFinite(minContributionValue)
+      ? Math.min(100, Math.max(0, (minContributionValue / thresholdValue) * 100))
+      : 0;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -110,7 +121,7 @@ export default function CreatePoolPage() {
           <span className="pill">USDC · Polygon Amoy</span>
         </div>
 
-        <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
+        <div className="create-details-row">
           <label className="block">
             <span className="muted">Title</span>
             <input
@@ -118,30 +129,6 @@ export default function CreatePoolPage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g., Insider report on protocol XYZ"
-              required
-            />
-          </label>
-          <label className="block">
-            <span className="muted">Funding threshold (USDC, 6 decimals)</span>
-            <input
-              className="input"
-              value={threshold}
-              onChange={(e) => setThreshold(e.target.value)}
-              type="number"
-              min="0"
-              step="0.01"
-              required
-            />
-          </label>
-          <label className="block">
-            <span className="muted">Minimum contribution to decrypt (USDC, 6 decimals)</span>
-            <input
-              className="input"
-              value={minContribution}
-              onChange={(e) => setMinContribution(e.target.value)}
-              type="number"
-              min="0"
-              step="0.01"
               required
             />
           </label>
@@ -169,17 +156,68 @@ export default function CreatePoolPage() {
           />
         </label>
 
-        <label className="block">
-          <span className="muted">Ciphertext (hex-encoded intel blob)</span>
-          <textarea
-            className="input"
-            style={{ minHeight: 140, width: "100%" }}
-            value={ciphertext}
-            onChange={(e) => setCiphertext(e.target.value)}
-            placeholder="0x..."
-            required
-          />
-        </label>
+        <div className="panel" style={{ padding: 16 }}>
+          <div className="section-header">
+            <h3 className="section-title">Funding rules</h3>
+            <span className="pill">Threshold + floor</span>
+          </div>
+          <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
+            <label className="block">
+              <span className="muted">Funding threshold (USDC, 6 decimals)</span>
+              <input
+                className="input"
+                value={threshold}
+                onChange={(e) => setThreshold(e.target.value)}
+                type="number"
+                min="0"
+                step="1"
+                required
+              />
+            </label>
+            <label className="block">
+              <span className="muted">Minimum contribution to decrypt (USDC, 6 decimals)</span>
+              <input
+                className="input"
+                value={minContribution}
+                onChange={(e) => setMinContribution(e.target.value)}
+                type="number"
+                min="0"
+                step="1"
+                required
+              />
+            </label>
+          </div>
+
+          <div className="pool-progress" style={{ marginTop: 12 }}>
+            <div className="progress-track">
+              <div className="progress-fill" style={{ width: `${progressPercent}%` }} />
+              <div className="progress-marker" style={{ left: `${minContributionPercent}%` }} />
+            </div>
+            <div className="progress-meta">
+              <span className="stat">Raised: 0 {CURRENCY_SYMBOL}</span>
+              <span className="stat">Threshold: {threshold || "0"} {CURRENCY_SYMBOL}</span>
+              <span className="stat">Decrypt floor: {minContribution || "0"} {CURRENCY_SYMBOL}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="panel" style={{ padding: 16 }}>
+          <div className="section-header">
+            <h3 className="section-title">Encrypted intel</h3>
+            <span className="pill">Step 2</span>
+          </div>
+          <label className="block">
+            <span className="muted">Ciphertext (hex-encoded intel blob)</span>
+            <textarea
+              className="input"
+              style={{ minHeight: 140, width: "100%" }}
+              value={ciphertext}
+              onChange={(e) => setCiphertext(e.target.value)}
+              placeholder="0x..."
+              required
+            />
+          </label>
+        </div>
 
         <div className="input-row">
           <button className="button cta" type="submit">

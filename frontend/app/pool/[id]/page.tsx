@@ -12,7 +12,7 @@ import {
   type PoolVoteSummary
 } from "../../../lib/api";
 import { describePolicy } from "../../../lib/tacoClient";
-import { fetchPoolState } from "../../../lib/onchain";
+import { fetchPoolState, type PoolOnchainState } from "../../../lib/onchain";
 import { getAddressExplorerUrl, getTxExplorerUrl } from "../../../lib/explorer";
 import { utils } from "ethers";
 import { useWallet } from "../../components/WalletProvider";
@@ -47,6 +47,7 @@ export default function PoolDetailPage() {
   const [voteStatus, setVoteStatus] = useState<string | null>(null);
   const [isSubmittingVote, setIsSubmittingVote] = useState(false);
   const [canDecrypt, setCanDecrypt] = useState<boolean | null>(null);
+  const [onchainState, setOnchainState] = useState<PoolOnchainState | null>(null);
   const [contributors, setContributors] = useState<PoolContributor[]>([]);
   const [contributorsStatus, setContributorsStatus] = useState<string | null>(null);
   const { walletAddress, connectWallet } = useWallet();
@@ -83,8 +84,14 @@ export default function PoolDetailPage() {
       return;
     }
     fetchPoolState(poolId, walletAddress)
-      .then((state) => setCanDecrypt(Boolean(state.canDecrypt)))
-      .catch(() => setCanDecrypt(null));
+      .then((state) => {
+        setOnchainState(state);
+        setCanDecrypt(Boolean(state.canDecrypt));
+      })
+      .catch(() => {
+        setCanDecrypt(null);
+        setOnchainState(null);
+      });
   }, [poolId, walletAddress]);
 
   async function handleVote(vote: 1 | -1) {
@@ -124,6 +131,20 @@ export default function PoolDetailPage() {
   const poolAverage = voteSummary ? ((voteSummary.average + 1) / 2) * 5 : 0;
   const isOwnPool = Boolean(walletAddress && pool && walletAddress.toLowerCase() === pool.investigator.toLowerCase());
   const uiCanVote = Boolean(walletAddress && !isOwnPool && canDecrypt);
+  const decimals = onchainState?.currencyDecimals ?? DEFAULT_DECIMALS;
+  const thresholdValue = onchainState ? Number(utils.formatUnits(onchainState.threshold, decimals)) : 0;
+  const raisedValue = onchainState ? Number(utils.formatUnits(onchainState.totalContributions, decimals)) : 0;
+  const minContributionValue = onchainState
+    ? Number(utils.formatUnits(onchainState.minContributionForDecrypt, decimals))
+    : 0;
+  const progressPercent =
+    thresholdValue > 0 && Number.isFinite(raisedValue)
+      ? Math.min(100, Math.max(0, (raisedValue / thresholdValue) * 100))
+      : 0;
+  const minContributionPercent =
+    thresholdValue > 0 && Number.isFinite(minContributionValue)
+      ? Math.min(100, Math.max(0, (minContributionValue / thresholdValue) * 100))
+      : 0;
 
   if (error) return <main className="app-shell">{error}</main>;
   if (!pool) return <main className="app-shell">Loading...</main>;
@@ -141,6 +162,19 @@ export default function PoolDetailPage() {
         </p>
         <p className="muted">Threshold: {formatAmount(pool.threshold)} {CURRENCY_SYMBOL}</p>
         <p className="muted">Contribution to decrypt: {formatAmount(pool.minContributionForDecrypt)} {CURRENCY_SYMBOL}</p>
+        {onchainState && (
+          <div className="pool-progress">
+            <div className="progress-track">
+              <div className="progress-fill" style={{ width: `${progressPercent}%` }} />
+              <div className="progress-marker" style={{ left: `${minContributionPercent}%` }} />
+            </div>
+            <div className="progress-meta">
+              <span className="stat">Raised: {formatAmount(onchainState.totalContributions)} {CURRENCY_SYMBOL}</span>
+              <span className="stat">Threshold: {formatAmount(onchainState.threshold)} {CURRENCY_SYMBOL}</span>
+              <span className="stat">Decrypt floor: {formatAmount(onchainState.minContributionForDecrypt)} {CURRENCY_SYMBOL}</span>
+            </div>
+          </div>
+        )}
         <p className="muted">
           Contract:
           {" "}
