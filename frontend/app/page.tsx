@@ -251,7 +251,7 @@ export default function HomePage() {
             const deadlinePassed = deadlineTimestamp ? Date.now() > deadlineTimestamp : false;
             const thresholdMet = Boolean(onchain?.unlocked);
             const hasContribution = onchain?.userContribution
-              ? BigInt(onchain.userContribution) > 0n
+              ? BigInt(onchain.userContribution) > BigInt(0)
               : false;
             const canClaimRefund = Boolean(deadlinePassed && !thresholdMet && !onchain?.unlocked && hasContribution);
 
@@ -280,7 +280,7 @@ export default function HomePage() {
                 </div>
 
                 <div className="stat-row">
-                  <div className="stat">Investigator: {pool.investigator}</div>
+                  <div className="stat">Investigator: <Link href={`/profile/${pool.investigator.toLowerCase()}`}>{pool.investigator}</Link></div>
                   <div className="stat">Deadline: {deadlineLabel}</div>
                 </div>
 

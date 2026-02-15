@@ -1,38 +1,3 @@
-create extension if not exists pgcrypto;
-
-create table if not exists public.pools (
-  id text primary key,
-  investigator text not null,
-  threshold text not null,
-  mincontributionfordecrypt text not null,
-  title text,
-  description text,
-  factoryaddress text,
-  policyid text,
-  deadline text,
-  ciphertext text
-);
-
-create table if not exists public.contributions (
-  id text primary key,
-  contributor text not null,
-  amount text not null,
-  poolid text references public.pools(id)
-);
-
-create index if not exists idx_contributions_poolid on public.contributions(poolid);
-create index if not exists idx_contributions_contributor on public.contributions(contributor);
-
-create table if not exists public.intel_blobs (
-  id uuid default gen_random_uuid() primary key,
-  poolid text references public.pools(id),
-  ciphertext text not null,
-  messagekit text not null,
-  created_at timestamptz default now()
-);
-
-create index if not exists idx_intel_blobs_poolid on public.intel_blobs(poolid);
-
 create table if not exists public.pool_votes (
   id bigserial primary key,
   poolid text not null references public.pools(id) on delete cascade,

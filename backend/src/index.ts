@@ -3,6 +3,8 @@ import morgan from "morgan";
 import dotenv from "dotenv";
 import poolsRouter from "./routes/pools.js";
 import intelRouter from "./routes/intel.js";
+import profilesRouter from "./routes/profiles.js";
+import votesRouter from "./routes/votes.js";
 import { startIndexer } from "./services/indexer.js";
 
 dotenv.config();
@@ -47,6 +49,8 @@ app.post("/rpc", async (req: Request, res: Response) => {
 });
 app.use("/pools", poolsRouter);
 app.use("/intel", intelRouter);
+app.use("/profiles", profilesRouter);
+app.use("/votes", votesRouter);
 
 const port = Number(process.env.PORT) || 4000;
 app.listen(port, () => {
