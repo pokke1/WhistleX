@@ -3,7 +3,14 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { fetchPoolVotes, fetchPools, submitPoolVote, type PoolVoteSummary } from "../../../lib/api";
+import {
+  fetchPoolContributors,
+  fetchPoolVotes,
+  fetchPools,
+  submitPoolVote,
+  type PoolContributor,
+  type PoolVoteSummary
+} from "../../../lib/api";
 import { describePolicy } from "../../../lib/tacoClient";
 import { fetchPoolState } from "../../../lib/onchain";
 import { utils } from "ethers";
@@ -39,6 +46,8 @@ export default function PoolDetailPage() {
   const [voteStatus, setVoteStatus] = useState<string | null>(null);
   const [isSubmittingVote, setIsSubmittingVote] = useState(false);
   const [canDecrypt, setCanDecrypt] = useState<boolean | null>(null);
+  const [contributors, setContributors] = useState<PoolContributor[]>([]);
+  const [contributorsStatus, setContributorsStatus] = useState<string | null>(null);
   const { walletAddress, connectWallet } = useWallet();
 
   useEffect(() => {
@@ -60,6 +69,12 @@ export default function PoolDetailPage() {
       .then(setVoteSummary)
       .catch((err: any) => setVoteStatus(err?.message || "Failed to load vote stats"));
   }, [poolId, walletAddress]);
+
+  useEffect(() => {
+    if (!poolId) return;
+    loadContributors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [poolId]);
 
   useEffect(() => {
     if (!poolId || !walletAddress) {
@@ -85,11 +100,23 @@ export default function PoolDetailPage() {
       }
       const updated = await submitPoolVote(pool.id, voterAddress, vote);
       setVoteSummary(updated);
+      await loadContributors();
       setVoteStatus("Feedback submitted");
     } catch (err: any) {
       setVoteStatus(err?.message || "Failed to submit vote");
     } finally {
       setIsSubmittingVote(false);
+    }
+  }
+
+  async function loadContributors() {
+    if (!poolId) return;
+    try {
+      setContributorsStatus(null);
+      const data = await fetchPoolContributors(poolId);
+      setContributors(data.contributors || []);
+    } catch (err: any) {
+      setContributorsStatus(err?.message || "Failed to load contributors");
     }
   }
 
@@ -149,6 +176,37 @@ export default function PoolDetailPage() {
         )}
         {voteSummary?.reason && <p className="muted">{voteSummary.reason}</p>}
         {voteStatus && <p className="muted">{voteStatus}</p>}
+      </section>
+
+      <section className="panel space-y-2">
+        <h2 className="section-title">Contributors</h2>
+        {contributorsStatus && <p className="muted">{contributorsStatus}</p>}
+        {!contributorsStatus && contributors.length === 0 && (
+          <p className="muted">No contributions indexed yet.</p>
+        )}
+        {contributors.length > 0 && (
+          <div className="list-grid">
+            {contributors.map((contributor) => (
+              <div key={contributor.address} className="list-card">
+                <div>
+                  <p className="muted">Contributor</p>
+                  <h3>
+                    <Link href={`/profile/${contributor.address}`}>
+                      {contributor.address}
+                    </Link>
+                  </h3>
+                  <div className="stat-row" style={{ marginTop: 8 }}>
+                    <span className="stat">
+                      Contributed: {formatAmount(contributor.amount)} {CURRENCY_SYMBOL}
+                    </span>
+                    {contributor.vote === 1 && <span className="pill">Voted: Upvote</span>}
+                    {contributor.vote === -1 && <span className="pill">Voted: Downvote</span>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="panel space-y-2">

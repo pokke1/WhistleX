@@ -48,6 +48,12 @@ export interface PoolVoteSummary {
   reason: string | null;
 }
 
+export interface PoolContributor {
+  address: string;
+  amount: string;
+  vote: number | null;
+}
+
 export async function fetchPools() {
   const res = await fetch(`${backend}/pools`);
   if (!res.ok) throw new Error("failed to load pools");
@@ -111,5 +117,11 @@ export async function submitPoolVote(poolId: string, voterAddress: string, vote:
     } catch {}
     throw new Error(message);
   }
+  return res.json();
+}
+
+export async function fetchPoolContributors(poolId: string): Promise<{ poolId: string; contributors: PoolContributor[] }> {
+  const res = await fetch(`${backend}/pools/${poolId}/contributors`);
+  if (!res.ok) throw new Error("failed to fetch contributors");
   return res.json();
 }
