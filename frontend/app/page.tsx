@@ -442,12 +442,16 @@ export default function HomePage() {
         {isClosed && onchain?.canDecrypt !== undefined && (
           <div className="decrypt-fold-wrap">
             <div
-              className={`decrypt-fold ${onchain.canDecrypt ? "decrypt-fold-ok" : "decrypt-fold-warn"}`}
+              className={`decrypt-fold ${
+                onchain.canDecrypt ? "decrypt-fold-ok" : deadlinePassed && !thresholdMet ? "decrypt-fold-expired" : "decrypt-fold-warn"
+              }`}
             />
             <div className="decrypt-fold-tooltip">
               {onchain.canDecrypt
                 ? "Eligible to decrypt: you contributed enough."
-                : "Your contribution is below the decrypt floor and the pool is closed. You cannot decrypt."}
+                : deadlinePassed && !thresholdMet
+                  ? "Pool expired. Your contribution is below the decrypt floor, so you cannot decrypt."
+                  : "Your contribution is below the decrypt floor and the pool is closed. You cannot decrypt."}
             </div>
           </div>
         )}

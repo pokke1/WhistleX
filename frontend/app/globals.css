@@ -208,6 +208,12 @@ a {
   box-shadow: 0 0 10px rgba(255, 159, 77, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
+.decrypt-fold-expired {
+  background: linear-gradient(135deg, rgba(140, 150, 170, 0.75), rgba(70, 80, 95, 0.45));
+  border-color: rgba(140, 150, 170, 0.6);
+  box-shadow: 0 0 10px rgba(120, 130, 150, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
 .decrypt-fold-ok {
   background: linear-gradient(135deg, rgba(90, 212, 172, 0.95), rgba(120, 230, 200, 0.55));
   border-color: rgba(90, 212, 172, 0.85);
@@ -241,7 +247,10 @@ a {
   opacity: 0;
   transform: translateY(4px);
   transition: opacity 0.15s ease, transform 0.15s ease;
-  white-space: nowrap;
+  display: inline-block;
+  width: max-content;
+  max-width: 320px;
+  white-space: normal;
   pointer-events: none;
   backdrop-filter: blur(22px) saturate(160%);
   box-shadow: 0 12px 30px rgba(5, 9, 16, 0.35), 0 0 14px rgba(90, 160, 255, 0.2),
