@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { fetchIntel, fetchPools } from "../lib/api";
-import { claimRefund, contributeToPool, fetchPoolState, PoolOnchainState } from "../lib/onchain";
+import { fetchIntel, fetchPoolVotes, fetchPools, fetchProfile } from "../lib/api";
+import { claimPoolFunds, claimRefund, contributeToPool, fetchPoolState, PoolOnchainState } from "../lib/onchain";
 import { decryptWithTaco } from "../lib/taco";
 import { describePolicy } from "../lib/tacoClient";
 import { utils } from "ethers";
@@ -52,6 +52,9 @@ export default function HomePage() {
   const [statusByPool, setStatusByPool] = useState<Record<string, string>>({});
   const [onchainStateByPool, setOnchainStateByPool] = useState<Record<string, PoolOnchainState>>({});
   const [contributionInputs, setContributionInputs] = useState<Record<string, string>>({});
+  const [poolVisibilityFilter, setPoolVisibilityFilter] = useState<"all" | "open" | "closed">("all");
+  const [ratingByInvestigator, setRatingByInvestigator] = useState<Record<string, number>>({});
+  const [voteSummaryByPool, setVoteSummaryByPool] = useState<Record<string, { upvotes: number; downvotes: number }>>({});
   const { walletAddress, connectWallet } = useWallet();
   const unlockedPools = pools.filter((pool) => onchainStateByPool[pool.id]?.unlocked);
   const recentlyListed = pools.slice(-6).reverse();
@@ -70,6 +73,48 @@ export default function HomePage() {
     pools.forEach((pool) => refreshPoolState(pool.id));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pools, walletAddress]);
+
+  useEffect(() => {
+    const uniqueInvestigators = [...new Set(pools.map((pool) => pool.investigator?.toLowerCase()).filter(Boolean))];
+    if (uniqueInvestigators.length === 0) {
+      setRatingByInvestigator({});
+      return;
+    }
+
+    Promise.all(
+      uniqueInvestigators.map(async (address) => {
+        try {
+          const profile = await fetchProfile(address);
+          const stars = Math.max(0, Math.min(5, ((profile.vendorRating.average + 1) / 2) * 5));
+          return [address, stars] as const;
+        } catch {
+          return [address, 0] as const;
+        }
+      })
+    ).then((pairs) => {
+      setRatingByInvestigator(Object.fromEntries(pairs));
+    });
+  }, [pools]);
+
+  useEffect(() => {
+    if (pools.length === 0) {
+      setVoteSummaryByPool({});
+      return;
+    }
+
+    Promise.all(
+      pools.map(async (pool) => {
+        try {
+          const summary = await fetchPoolVotes(pool.id);
+          return [pool.id, { upvotes: summary.upvotes || 0, downvotes: summary.downvotes || 0 }] as const;
+        } catch {
+          return [pool.id, { upvotes: 0, downvotes: 0 }] as const;
+        }
+      })
+    ).then((entries) => {
+      setVoteSummaryByPool(Object.fromEntries(entries));
+    });
+  }, [pools]);
 
   async function refreshPoolState(poolId: string) {
     try {
@@ -120,6 +165,18 @@ export default function HomePage() {
       await refreshPoolState(pool.id);
     } catch (err: any) {
       setStatusByPool((prev) => ({ ...prev, [pool.id]: err?.message || "Failed to claim refund" }));
+    }
+  }
+
+  async function handleClaimPoolFunds(pool: Pool) {
+    try {
+      await ensureWalletAddress();
+      setStatusByPool((prev) => ({ ...prev, [pool.id]: "Claiming pool funds..." }));
+      const { txHash } = await claimPoolFunds(pool.id);
+      setStatusByPool((prev) => ({ ...prev, [pool.id]: `Pool funds claimed. Tx ${txHash}` }));
+      await refreshPoolState(pool.id);
+    } catch (err: any) {
+      setStatusByPool((prev) => ({ ...prev, [pool.id]: err?.message || "Failed to claim pool funds" }));
     }
   }
 
@@ -182,6 +239,176 @@ export default function HomePage() {
     }
   }
 
+  function isPoolClosed(pool: Pool) {
+    const onchain = onchainStateByPool[pool.id];
+    const thresholdMet = Boolean(onchain?.unlocked);
+    const deadlineValue = onchain?.deadline ?? pool.deadline;
+    const deadlineTimestamp = deadlineValue ? Number(deadlineValue) * 1000 : undefined;
+    const deadlinePassed = deadlineTimestamp ? Date.now() > deadlineTimestamp : false;
+    return thresholdMet || deadlinePassed;
+  }
+
+  const openPools = pools.filter((pool) => !isPoolClosed(pool));
+  const closedPools = pools.filter((pool) => isPoolClosed(pool));
+  const visibleOpenPools = poolVisibilityFilter === "closed" ? [] : openPools;
+  const visibleClosedPools = poolVisibilityFilter === "open" ? [] : closedPools;
+
+  function renderPoolCard(pool: Pool) {
+    const intel = intelByPool[pool.id];
+    const decrypted = decryptedByPool[pool.id];
+    const status = statusByPool[pool.id];
+    const onchain = onchainStateByPool[pool.id];
+    const decimals = onchain?.currencyDecimals ?? DEFAULT_DECIMALS;
+    const thresholdDisplay = onchain ? formatAmount(onchain.threshold, decimals) : pool.threshold;
+    const minContributionDisplay = onchain
+      ? formatAmount(onchain.minContributionForDecrypt, decimals)
+      : pool.minContributionForDecrypt;
+    const raisedDisplay = onchain ? formatAmount(onchain.totalContributions, decimals) : "-";
+    const deadlineValue = onchain?.deadline ?? pool.deadline;
+    const deadlineTimestamp = deadlineValue ? Number(deadlineValue) * 1000 : undefined;
+    const deadlineLabel = deadlineTimestamp ? new Date(deadlineTimestamp).toLocaleString() : "-";
+    const deadlinePassed = deadlineTimestamp ? Date.now() > deadlineTimestamp : false;
+    const thresholdMet = Boolean(onchain?.unlocked);
+    const isClosed = thresholdMet || deadlinePassed;
+    const hasContribution = onchain?.userContribution
+      ? BigInt(onchain.userContribution) > BigInt(0)
+      : false;
+    const canClaimRefund = Boolean(deadlinePassed && !thresholdMet && !onchain?.unlocked && hasContribution);
+    const isCreator = Boolean(walletAddress && walletAddress.toLowerCase() === pool.investigator.toLowerCase());
+    const canClaimCreatorFunds = Boolean(thresholdMet && isCreator);
+    const investigatorStars = ratingByInvestigator[pool.investigator.toLowerCase()] ?? 0;
+    const statusLabel = thresholdMet ? "Unlocked" : isClosed ? "Expired" : "Locked";
+    const voteSummary = voteSummaryByPool[pool.id] || { upvotes: 0, downvotes: 0 };
+
+    return (
+      <article key={pool.id} className="card pool-card">
+        <div className="stat-row">
+          <span className="tag">{statusLabel}</span>
+          {onchain?.canDecrypt !== undefined && (
+            <span className={`tag ${onchain.canDecrypt ? "" : "tag-warn"}`}>
+              {onchain.canDecrypt ? "Eligible to decrypt" : "Below decrypt floor"}
+            </span>
+          )}
+          {!isClosed && <span className="pill">Investigator rating: {investigatorStars.toFixed(2)} / 5</span>}
+          {isClosed && <span className="pill">Upvotes {voteSummary.upvotes} / Downvotes {voteSummary.downvotes}</span>}
+        </div>
+
+        <div>
+          <p className="muted">Pool</p>
+          <h3>{pool.title || pool.id}</h3>
+          {pool.description && <p className="muted" style={{ marginTop: 4 }}>{pool.description}</p>}
+          {!pool.title && <p className="muted" style={{ fontSize: 12 }}>{pool.id}</p>}
+        </div>
+
+        <div className="stat-row">
+          <div className="stat">Threshold: {thresholdDisplay} {CURRENCY_SYMBOL}</div>
+          <div className="stat">Decrypt floor: {minContributionDisplay} {CURRENCY_SYMBOL}</div>
+          <div className="stat">Raised: {raisedDisplay} {CURRENCY_SYMBOL}</div>
+        </div>
+
+        <div className="stat-row">
+          <div className="stat">Investigator: <Link href={`/profile/${pool.investigator.toLowerCase()}`}>{pool.investigator}</Link></div>
+          <div className="stat">Deadline: {deadlineLabel}</div>
+        </div>
+
+        <p className="muted">Policy: {describePolicy(pool.policyId as any)}</p>
+        {pool.ciphertext && (
+          <div className="pool-ciphertext">
+            <span className="muted">Ciphertext</span>
+            <span className="mono">{pool.ciphertext}</span>
+          </div>
+        )}
+
+        <div className="input-row">
+          {deadlinePassed && !thresholdMet ? (
+            <button
+              className="button tiny"
+              onClick={() => handleClaimRefund(pool)}
+              disabled={!canClaimRefund}
+            >
+              Claim refund
+            </button>
+          ) : (
+            <>
+              {!thresholdMet && (
+                <>
+                  <input
+                    className="input"
+                    placeholder={`Amount (${CURRENCY_SYMBOL})`}
+                    type="number"
+                    min="0"
+                    step="0.000001"
+                    value={contributionInputs[pool.id] || ""}
+                    onChange={(e) => setContributionInputs((prev) => ({ ...prev, [pool.id]: e.target.value }))}
+                  />
+                  <button
+                    className="button cta"
+                    onClick={() => handleContribute(pool)}
+                    disabled={!contributionInputs[pool.id]}
+                  >
+                    Contribute
+                  </button>
+                </>
+              )}
+              {canClaimCreatorFunds && (
+                <button className="button tiny" onClick={() => handleClaimPoolFunds(pool)}>
+                  Claim funds
+                </button>
+              )}
+              <button className="button" onClick={() => handleFetchIntel(pool.id)}>
+                Load intel
+              </button>
+              {thresholdMet && (
+                <button
+                  className="button"
+                  disabled={!intel || (onchain && !onchain.unlocked)}
+                  onClick={() => handleDecrypt(pool)}
+                >
+                  Request TACo key
+                </button>
+              )}
+              <button
+                className="button"
+                disabled={!intel || !decrypted}
+                onClick={() => handleDecryptIntel(pool)}
+              >
+                Decrypt intel
+              </button>
+              <Link className="button" href={`/pool/${pool.id}`}>
+                View details
+              </Link>
+            </>
+          )}
+        </div>
+
+        {status && <span className="muted">{status}</span>}
+
+        {intel && (
+          <div className="panel">
+            <p className="muted">MessageKit</p>
+            <textarea className="input" style={{ width: "100%", minHeight: 80 }} readOnly value={intel.messageKit} />
+          </div>
+        )}
+
+        {decrypted && (
+          <div className="panel" style={{ borderColor: "rgba(90, 212, 172, 0.5)" }}>
+            <p className="muted">Decrypted TACo key</p>
+            <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 12 }}>{decrypted}</pre>
+          </div>
+        )}
+
+        {plaintextByPool[pool.id] && (
+          <div className="panel" style={{ borderColor: "rgba(77, 163, 255, 0.5)" }}>
+            <p className="muted">Intel plaintext</p>
+            <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 12 }}>
+              {plaintextByPool[pool.id]}
+            </pre>
+          </div>
+        )}
+      </article>
+    );
+  }
+
   return (
     <main className="app-shell">
       <header className="top-bar">
@@ -227,156 +454,48 @@ export default function HomePage() {
 
       <section className="panel">
         <div className="section-header">
+          <h2 className="section-title">Marketplace filters</h2>
+          <span className="pill">{pools.length} total</span>
+        </div>
+        <div className="input-row">
+          <button
+            className={`button ${poolVisibilityFilter === "all" ? "cta" : ""}`}
+            onClick={() => setPoolVisibilityFilter("all")}
+          >
+            All
+          </button>
+          <button
+            className={`button ${poolVisibilityFilter === "open" ? "cta" : ""}`}
+            onClick={() => setPoolVisibilityFilter("open")}
+          >
+            Open
+          </button>
+          <button
+            className={`button ${poolVisibilityFilter === "closed" ? "cta" : ""}`}
+            onClick={() => setPoolVisibilityFilter("closed")}
+          >
+            Closed
+          </button>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="section-header">
           <h2 className="section-title">Open pools</h2>
-          <span className="pill">{pools.length} listed</span>
+          <span className="pill">{visibleOpenPools.length} listed</span>
         </div>
 
-        {pools.length === 0 && <div className="message">No pools indexed yet.</div>}
+        {visibleOpenPools.length === 0 && <div className="message">No open pools for the selected filter.</div>}
+        <div className="grid">{visibleOpenPools.map(renderPoolCard)}</div>
+      </section>
 
-        <div className="grid">
-          {pools.map((pool) => {
-            const intel = intelByPool[pool.id];
-            const decrypted = decryptedByPool[pool.id];
-            const status = statusByPool[pool.id];
-            const onchain = onchainStateByPool[pool.id];
-            const decimals = onchain?.currencyDecimals ?? DEFAULT_DECIMALS;
-            const thresholdDisplay = onchain ? formatAmount(onchain.threshold, decimals) : pool.threshold;
-            const minContributionDisplay = onchain
-              ? formatAmount(onchain.minContributionForDecrypt, decimals)
-              : pool.minContributionForDecrypt;
-            const raisedDisplay = onchain ? formatAmount(onchain.totalContributions, decimals) : "-";
-            const deadlineValue = onchain?.deadline ?? pool.deadline;
-            const deadlineTimestamp = deadlineValue ? Number(deadlineValue) * 1000 : undefined;
-            const deadlineLabel = deadlineTimestamp ? new Date(deadlineTimestamp).toLocaleString() : "-";
-            const deadlinePassed = deadlineTimestamp ? Date.now() > deadlineTimestamp : false;
-            const thresholdMet = Boolean(onchain?.unlocked);
-            const hasContribution = onchain?.userContribution
-              ? BigInt(onchain.userContribution) > BigInt(0)
-              : false;
-            const canClaimRefund = Boolean(deadlinePassed && !thresholdMet && !onchain?.unlocked && hasContribution);
-
-            return (
-              <article key={pool.id} className="card pool-card">
-                <div className="stat-row">
-                  <span className="tag">{onchain?.unlocked ? "Unlocked" : "Locked"}</span>
-                  {onchain?.canDecrypt !== undefined && (
-                    <span className={`tag ${onchain.canDecrypt ? "" : "tag-warn"}`}>
-                      {onchain.canDecrypt ? "Eligible to decrypt" : "Needs more contribution"}
-                    </span>
-                  )}
-                </div>
-
-                <div>
-                  <p className="muted">Pool</p>
-                  <h3>{pool.title || pool.id}</h3>
-                  {pool.description && <p className="muted" style={{ marginTop: 4 }}>{pool.description}</p>}
-                  {!pool.title && <p className="muted" style={{ fontSize: 12 }}>{pool.id}</p>}
-                </div>
-
-                <div className="stat-row">
-                  <div className="stat">Threshold: {thresholdDisplay} {CURRENCY_SYMBOL}</div>
-                  <div className="stat">Decrypt floor: {minContributionDisplay} {CURRENCY_SYMBOL}</div>
-                  <div className="stat">Raised: {raisedDisplay} {CURRENCY_SYMBOL}</div>
-                </div>
-
-                <div className="stat-row">
-                  <div className="stat">Investigator: <Link href={`/profile/${pool.investigator.toLowerCase()}`}>{pool.investigator}</Link></div>
-                  <div className="stat">Deadline: {deadlineLabel}</div>
-                </div>
-
-                <p className="muted">Policy: {describePolicy(pool.policyId as any)}</p>
-                {pool.ciphertext && (
-                  <div className="pool-ciphertext">
-                    <span className="muted">Ciphertext</span>
-                    <span className="mono">{pool.ciphertext}</span>
-                  </div>
-                )}
-
-                <div className="input-row">
-                  {deadlinePassed && !thresholdMet ? (
-                    <button
-                      className="button tiny"
-                      onClick={() => handleClaimRefund(pool)}
-                      disabled={!canClaimRefund}
-                    >
-                      Claim refund
-                    </button>
-                  ) : (
-                    <>
-                      {!thresholdMet && (
-                        <>
-                          <input
-                            className="input"
-                            placeholder={`Amount (${CURRENCY_SYMBOL})`}
-                            type="number"
-                            min="0"
-                            step="0.000001"
-                            value={contributionInputs[pool.id] || ""}
-                            onChange={(e) => setContributionInputs((prev) => ({ ...prev, [pool.id]: e.target.value }))}
-                          />
-                          <button
-                            className="button cta"
-                            onClick={() => handleContribute(pool)}
-                            disabled={!contributionInputs[pool.id]}
-                          >
-                            Contribute
-                          </button>
-                        </>
-                      )}
-                      <button className="button" onClick={() => handleFetchIntel(pool.id)}>
-                        Load intel
-                      </button>
-                      {thresholdMet && (
-                        <button
-                          className="button"
-                          disabled={!intel || (onchain && !onchain.unlocked)}
-                          onClick={() => handleDecrypt(pool)}
-                        >
-                          Request TACo key
-                        </button>
-                      )}
-                      <button
-                        className="button"
-                        disabled={!intel || !decrypted}
-                        onClick={() => handleDecryptIntel(pool)}
-                      >
-                        Decrypt intel
-                      </button>
-                      <Link className="button" href={`/pool/${pool.id}`}>
-                        View details
-                      </Link>
-                    </>
-                  )}
-                </div>
-
-                {status && <span className="muted">{status}</span>}
-
-                {intel && (
-                  <div className="panel">
-                    <p className="muted">MessageKit</p>
-                    <textarea className="input" style={{ width: "100%", minHeight: 80 }} readOnly value={intel.messageKit} />
-                  </div>
-                )}
-
-                {decrypted && (
-                  <div className="panel" style={{ borderColor: "rgba(90, 212, 172, 0.5)" }}>
-                    <p className="muted">Decrypted TACo key</p>
-                    <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 12 }}>{decrypted}</pre>
-                  </div>
-                )}
-
-                {plaintextByPool[pool.id] && (
-                  <div className="panel" style={{ borderColor: "rgba(77, 163, 255, 0.5)" }}>
-                    <p className="muted">Intel plaintext</p>
-                    <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 12 }}>
-                      {plaintextByPool[pool.id]}
-                    </pre>
-                  </div>
-                )}
-              </article>
-            );
-          })}
+      <section className="panel">
+        <div className="section-header">
+          <h2 className="section-title">Closed pools</h2>
+          <span className="pill">{visibleClosedPools.length} listed</span>
         </div>
+        {visibleClosedPools.length === 0 && <div className="message">No closed pools for the selected filter.</div>}
+        <div className="grid">{visibleClosedPools.map(renderPoolCard)}</div>
       </section>
     </main>
   );

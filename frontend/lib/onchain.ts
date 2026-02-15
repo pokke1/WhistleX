@@ -13,6 +13,7 @@ const poolAbi = [
   "function currency() view returns (address)",
   "function currencyDecimals() view returns (uint8)",
   "function contribute(uint256 amount)",
+  "function withdraw()",
   "function totalContributions() view returns (uint256)",
   "function threshold() view returns (uint256)",
   "function minContributionForDecrypt() view returns (uint256)",
@@ -235,6 +236,27 @@ export async function claimRefund(poolAddress: string) {
   const pool = new Contract(poolAddress, poolAbi, signer);
 
   const tx = await pool.refund();
+  const receipt = await tx.wait();
+  return { txHash: receipt?.hash || tx.hash };
+}
+
+export async function claimPoolFunds(poolAddress: string) {
+  if (typeof window === "undefined") {
+    throw new Error("window is not available");
+  }
+
+  const ethereum = getActiveProvider();
+  if (!ethereum) {
+    throw new Error("Wallet provider not found. Please install MetaMask, Phantom, or another EVM wallet.");
+  }
+
+  const provider = new providers.Web3Provider(ethereum);
+  await ensureAmoyNetwork(ethereum, provider);
+
+  const signer = provider.getSigner();
+  const pool = new Contract(poolAddress, poolAbi, signer);
+
+  const tx = await pool.withdraw();
   const receipt = await tx.wait();
   return { txHash: receipt?.hash || tx.hash };
 }

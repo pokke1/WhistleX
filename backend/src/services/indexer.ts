@@ -112,13 +112,19 @@ async function handlePoolEvents(address: string, state: PoolListenerState, curre
         id: `${address}-${contributor}-${event.blockNumber}-${logIndex}`,
         contributor,
         amount: amount.toString(),
-        poolId: address
+        poolId: address,
+        txHash: event.transactionHash,
+        blockNumber: event.blockNumber,
+        logIndex
       };
       await supabase.from("contributions").upsert({
         id: payload.id,
         contributor: payload.contributor,
         amount: payload.amount,
-        poolid: payload.poolId
+        poolid: payload.poolId,
+        txhash: payload.txHash,
+        blocknumber: payload.blockNumber,
+        logindex: payload.logIndex
       });
       console.log("Indexed contribution", payload);
     }

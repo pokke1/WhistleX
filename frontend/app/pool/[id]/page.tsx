@@ -13,6 +13,7 @@ import {
 } from "../../../lib/api";
 import { describePolicy } from "../../../lib/tacoClient";
 import { fetchPoolState } from "../../../lib/onchain";
+import { getAddressExplorerUrl, getTxExplorerUrl } from "../../../lib/explorer";
 import { utils } from "ethers";
 import { useWallet } from "../../components/WalletProvider";
 
@@ -140,6 +141,13 @@ export default function PoolDetailPage() {
         </p>
         <p className="muted">Threshold: {formatAmount(pool.threshold)} {CURRENCY_SYMBOL}</p>
         <p className="muted">Contribution to decrypt: {formatAmount(pool.minContributionForDecrypt)} {CURRENCY_SYMBOL}</p>
+        <p className="muted">
+          Contract:
+          {" "}
+          <a href={getAddressExplorerUrl(pool.id)} target="_blank" rel="noreferrer">
+            View on explorer
+          </a>
+        </p>
         <p className="muted">{describePolicy(pool.policyId as any)}</p>
       </div>
 
@@ -195,6 +203,13 @@ export default function PoolDetailPage() {
                       {contributor.address}
                     </Link>
                   </h3>
+                  {contributor.txHash && (
+                    <p className="muted" style={{ marginTop: 4 }}>
+                      <a href={getTxExplorerUrl(contributor.txHash)} target="_blank" rel="noreferrer">
+                        View contribution tx
+                      </a>
+                    </p>
+                  )}
                   <div className="stat-row" style={{ marginTop: 8 }}>
                     <span className="stat">
                       Contributed: {formatAmount(contributor.amount)} {CURRENCY_SYMBOL}

@@ -20,7 +20,7 @@ router.get("/:poolId/contributors", async (req: Request, res: Response) => {
   }
 
   const [contributionsResult, votesResult] = await Promise.all([
-    supabase.from("contributions").select("contributor, amount").eq("poolid", poolId),
+    supabase.from("contributions").select("contributor, amount, txhash, blocknumber, logindex").eq("poolid", poolId),
     supabase.from("pool_votes").select("voteraddress, vote").eq("poolid", poolId)
   ]);
 
@@ -31,15 +31,23 @@ router.get("/:poolId/contributors", async (req: Request, res: Response) => {
     return res.status(500).json({ error: votesResult.error.message });
   }
 
-  const byContributor = new Map<string, { address: string; amount: bigint }>();
+  const byContributor = new Map<string, { address: string; amount: bigint; txHash: string | null; latestOrder: number }>();
   for (const row of contributionsResult.data || []) {
     const address = String(row.contributor || "").toLowerCase();
     const amount = BigInt(String(row.amount || "0"));
+    const txHash = row.txhash ? String(row.txhash) : null;
+    const blockNumber = Number(row.blocknumber || 0);
+    const logIndex = Number(row.logindex || 0);
+    const order = (blockNumber * 1_000_000) + logIndex;
     const current = byContributor.get(address);
     if (current) {
       current.amount += amount;
+      if (order >= current.latestOrder && txHash) {
+        current.txHash = txHash;
+        current.latestOrder = order;
+      }
     } else {
-      byContributor.set(address, { address, amount });
+      byContributor.set(address, { address, amount, txHash, latestOrder: order });
     }
   }
 
@@ -53,10 +61,11 @@ router.get("/:poolId/contributors", async (req: Request, res: Response) => {
   }
 
   const contributors = [...byContributor.values()]
-    .map(({ address, amount }) => ({
+    .map(({ address, amount, txHash }) => ({
       address,
       amount: amount.toString(),
-      vote: voteByAddress.get(address) ?? null
+      vote: voteByAddress.get(address) ?? null,
+      txHash
     }))
     .sort((a, b) => {
       const left = BigInt(a.amount);

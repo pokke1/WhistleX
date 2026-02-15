@@ -17,8 +17,15 @@ create table if not exists public.contributions (
   id text primary key,
   contributor text not null,
   amount text not null,
-  poolid text references public.pools(id)
+  poolid text references public.pools(id),
+  txhash text,
+  blocknumber bigint,
+  logindex integer
 );
+
+alter table public.contributions add column if not exists txhash text;
+alter table public.contributions add column if not exists blocknumber bigint;
+alter table public.contributions add column if not exists logindex integer;
 
 create index if not exists idx_contributions_poolid on public.contributions(poolid);
 create index if not exists idx_contributions_contributor on public.contributions(contributor);

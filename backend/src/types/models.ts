@@ -16,6 +16,9 @@ export interface ContributionRecord {
   contributor: string;
   amount: string;
   poolId: string;
+  txHash?: string;
+  blockNumber?: number;
+  logIndex?: number;
 }
 
 export interface IntelBlob {

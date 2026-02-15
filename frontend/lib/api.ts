@@ -52,6 +52,7 @@ export interface PoolContributor {
   address: string;
   amount: string;
   vote: number | null;
+  txHash?: string | null;
 }
 
 export async function fetchPools() {
