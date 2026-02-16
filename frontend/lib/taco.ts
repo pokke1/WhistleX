@@ -31,7 +31,6 @@ function resolveTacoConfig({
 }: Partial<EncryptWithTacoParams>) {
   const key =
     privateKey ||
-    process.env.NEXT_PUBLIC_TACO_PRIVATE_KEY ||
     DEFAULT_TACO_PRIVATE_KEY;
 
   const dkg =
@@ -56,6 +55,18 @@ function resolveTacoConfig({
     DEFAULT_TACO_RITUAL_ID;
 
   return { key, dkg, condition, conditionChain, ritual };
+}
+
+async function resolveConditionSigner(
+  conditionProvider: providers.JsonRpcProvider,
+  key?: string
+) {
+  if (typeof window !== "undefined" && (window as any).ethereum) {
+    const injected = new providers.Web3Provider((window as any).ethereum);
+    await injected.send("eth_requestAccounts", []);
+    return injected.getSigner();
+  }
+  return new Wallet(key || DEFAULT_TACO_PRIVATE_KEY, conditionProvider);
 }
 
 function toHexString(bytes: Uint8Array) {
@@ -174,7 +185,8 @@ export async function encryptWithTaco({
   const conditionProvider = new providers.JsonRpcProvider(
     condition || DEFAULT_POLYGON_AMOY_RPC_URL
   );
-  const encryptorWallet = new Wallet(key, conditionProvider);
+  const encryptorSigner = await resolveConditionSigner(conditionProvider, key);
+  const encryptorAddress = await encryptorSigner.getAddress();
 
   // ABI for IntelPool.canDecrypt(address) -> bool
   const canDecryptAbi: any = {
@@ -225,7 +237,7 @@ export async function encryptWithTaco({
       ? payload
       : typeof payload === "string"
         ? encodePayload(payload)
-        : encodePayload(key);
+        : encodePayload(key || encryptorAddress);
 
   const kit = await encrypt(
     dkgProvider,
@@ -233,7 +245,7 @@ export async function encryptWithTaco({
     payloadBytes,
     conditionInstance,
     ritual,
-    encryptorWallet
+    encryptorSigner
   );
 
   if (typeof kit === "string") return kit;
@@ -284,7 +296,8 @@ export async function decryptWithTaco({
   const conditionProvider = new providers.JsonRpcProvider(
     condition || DEFAULT_POLYGON_AMOY_RPC_URL
   );
-  const decryptorWallet = new Wallet(key, conditionProvider);
+  const decryptorSigner = await resolveConditionSigner(conditionProvider, key);
+  const decryptorAddress = await decryptorSigner.getAddress();
 
   const kitBytes = parseMessageKitBytes(messageKit);
   const kit = ThresholdMessageKit.fromBytes(kitBytes);
@@ -294,7 +307,7 @@ export async function decryptWithTaco({
     // TACo nodes require checksum addresses; sanitize with ethers utils
     ":contributor": contributorAddress
       ? (await import("ethers")).utils.getAddress(contributorAddress)
-      : decryptorWallet.address
+      : decryptorAddress
   });
 
   const decryptedBytes: Uint8Array = await decrypt(

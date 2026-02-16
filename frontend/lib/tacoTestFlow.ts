@@ -29,7 +29,6 @@ export interface TacoTestResult {
 function resolveDeveloperKey() {
   return (
     process.env.NEXT_PUBLIC_DEVELOPER_KEY ||
-    process.env.NEXT_PUBLIC_TACO_PRIVATE_KEY ||
     DEFAULT_TACO_PRIVATE_KEY
   );
 }
