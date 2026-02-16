@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createPool, uploadIntel, uploadPoolFiles } from "../../lib/api";
 import { createPoolOnchain, normalizeHex } from "../../lib/onchain";
@@ -13,7 +13,7 @@ function toUnixTimestamp(input: string) {
   return Math.floor(value / 1000).toString();
 }
 
-export default function CreatePoolPage() {
+function CreatePoolPageContent() {
   const CURRENCY_SYMBOL = "USDC";
   const searchParams = useSearchParams();
   const [poolId, setPoolId] = useState("");
@@ -377,5 +377,13 @@ export default function CreatePoolPage() {
         </div>
       )}
     </main>
+  );
+}
+
+export default function CreatePoolPage() {
+  return (
+    <Suspense fallback={<main className="app-shell"><div className="message">Loading...</div></main>}>
+      <CreatePoolPageContent />
+    </Suspense>
   );
 }

@@ -39,6 +39,10 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
 function base64ToBytes(encoded: string): Uint8Array {
   const normalized = encoded.trim();
   if (typeof atob !== "function") {
@@ -112,11 +116,21 @@ export async function encryptIntelWithKey(params: {
   const cryptoApi = getCrypto();
   const subtle = cryptoApi.subtle;
 
-  const aesKey = await subtle.importKey("raw", keyBytes, "AES-GCM", false, ["encrypt", "decrypt"]);
+  const aesKey = await subtle.importKey(
+    "raw",
+    toArrayBuffer(keyBytes),
+    "AES-GCM",
+    false,
+    ["encrypt", "decrypt"]
+  );
   const ivBytes = iv || cryptoApi.getRandomValues(new Uint8Array(12));
   const encodedPlaintext = new TextEncoder().encode(plaintext);
 
-  const cipherBuffer = await subtle.encrypt({ name: "AES-GCM", iv: ivBytes }, aesKey, encodedPlaintext);
+  const cipherBuffer = await subtle.encrypt(
+    { name: "AES-GCM", iv: toArrayBuffer(ivBytes) },
+    aesKey,
+    toArrayBuffer(encodedPlaintext)
+  );
   const ciphertext = new Uint8Array(cipherBuffer);
   // Prefix IV so the stored ciphertext blob is self contained.
   const packed = new Uint8Array(ivBytes.length + ciphertext.length);
@@ -163,7 +177,11 @@ export async function decryptIntelWithKey(params: {
 
   const cryptoApi = getCrypto();
   const subtle = cryptoApi.subtle;
-  const aesKey = await subtle.importKey("raw", keyBytes, "AES-GCM", false, ["decrypt"]);
-  const plainBuffer = await subtle.decrypt({ name: "AES-GCM", iv: ivBytes }, aesKey, cipherBytes);
+  const aesKey = await subtle.importKey("raw", toArrayBuffer(keyBytes), "AES-GCM", false, ["decrypt"]);
+  const plainBuffer = await subtle.decrypt(
+    { name: "AES-GCM", iv: toArrayBuffer(ivBytes) },
+    aesKey,
+    toArrayBuffer(cipherBytes)
+  );
   return new TextDecoder().decode(plainBuffer);
 }

@@ -180,7 +180,13 @@ export async function buildPolymarketScorecard(address: string, limit = 100): Pr
     marketEntries.map(([slug, market]) => [slug, market?.events?.[0]?.id ? String(market.events[0].id) : null])
   );
 
-  const eventIds = Array.from(new Set([...marketEventIds.values()].filter(Boolean))) as string[];
+  const eventIds = Array.from(
+    new Set(
+      Array.from(marketEventIds.values()).filter(
+        (eventId): eventId is string => Boolean(eventId)
+      )
+    )
+  );
   const eventIdTagsEntries = await Promise.all(
     eventIds.map(async (eventId) => {
       try {

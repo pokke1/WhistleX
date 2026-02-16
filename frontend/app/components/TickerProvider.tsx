@@ -4,14 +4,14 @@ import { createContext, useContext, useMemo, useState } from "react";
 
 type TickerContextValue = {
   items: string[];
-  setItems: (items: string[]) => void;
+  setItems: React.Dispatch<React.SetStateAction<string[]>>;
 };
 
 const TickerContext = createContext<TickerContextValue | null>(null);
 
 export function TickerProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<string[]>([]);
-  const value = useMemo(() => ({ items, setItems }), [items]);
+  const value = useMemo(() => ({ items, setItems }), [items, setItems]);
   return <TickerContext.Provider value={value}>{children}</TickerContext.Provider>;
 }
 

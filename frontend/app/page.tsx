@@ -121,7 +121,13 @@ export default function HomePage() {
   }, [pools, walletAddress]);
 
   useEffect(() => {
-    const uniqueInvestigators = [...new Set(pools.map((pool) => pool.investigator?.toLowerCase()).filter(Boolean))];
+    const uniqueInvestigators = Array.from(
+      new Set(
+        pools
+          .map((pool) => pool.investigator?.toLowerCase())
+          .filter((address): address is string => Boolean(address))
+      )
+    );
     if (uniqueInvestigators.length === 0) {
       setRatingByInvestigator({});
       return;
