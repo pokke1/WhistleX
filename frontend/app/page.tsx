@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { fetchIntel, fetchPoolVotes, fetchPools, fetchProfile } from "../lib/api";
 import { claimPoolFunds, claimRefund, contributeToPool, fetchPoolState, PoolOnchainState } from "../lib/onchain";
@@ -57,6 +57,16 @@ export default function HomePage() {
   const [poolVisibilityFilter, setPoolVisibilityFilter] = useState<"all" | "open" | "closed">("all");
   const [ratingByInvestigator, setRatingByInvestigator] = useState<Record<string, number>>({});
   const [voteSummaryByPool, setVoteSummaryByPool] = useState<Record<string, { upvotes: number; downvotes: number }>>({});
+  const [allMarkets, setAllMarkets] = useState<
+    { id: string; slug: string; question: string; endDate: string; createdAt: string | null; volume24hr: number; image: string | null; tags: string[] }[]
+  >([]);
+  const [marketsStatus, setMarketsStatus] = useState<string | null>(null);
+  const [hotTag, setHotTag] = useState<string>("all");
+  const [whistleSearch, setWhistleSearch] = useState<string>("");
+  const [expandedMarketTips, setExpandedMarketTips] = useState<Record<string, boolean>>({});
+  const whistleRef = useRef<HTMLDivElement | null>(null);
+  const whistlePauseRef = useRef<number | null>(null);
+  const whistlePausedRef = useRef<boolean>(false);
   const { walletAddress, connectWallet } = useWallet();
   const unlockedPools = pools.filter((pool) => onchainStateByPool[pool.id]?.unlocked);
   const recentlyListed = pools.slice(-6).reverse();
@@ -117,6 +127,118 @@ export default function HomePage() {
       setVoteSummaryByPool(Object.fromEntries(entries));
     });
   }, [pools]);
+
+  useEffect(() => {
+    setMarketsStatus(null);
+    fetch("/api/polymarket/all")
+      .then((res) => {
+        if (!res.ok) throw new Error("failed to load Polymarket markets");
+        return res.json();
+      })
+      .then((data) => setAllMarkets(data?.markets || []))
+      .catch((err: any) => setMarketsStatus(err?.message || "Failed to load Polymarket markets"));
+  }, []);
+
+  const hotMarkets = useMemo(() => {
+    const scored = [...allMarkets].sort((a, b) => {
+      const volumeDelta = (b.volume24hr || 0) - (a.volume24hr || 0);
+      if (volumeDelta !== 0) return volumeDelta;
+      const endA = Date.parse(a.endDate || "");
+      const endB = Date.parse(b.endDate || "");
+      if (Number.isNaN(endA) && Number.isNaN(endB)) return 0;
+      if (Number.isNaN(endA)) return 1;
+      if (Number.isNaN(endB)) return -1;
+      return endA - endB;
+    });
+    return scored.slice(0, 8);
+  }, [allMarkets]);
+
+  const polymarketTipsById = useMemo(() => {
+    const map: Record<string, Pool[]> = {};
+    const idRegex = /polymarket_id:([0-9]+)/i;
+    for (const pool of pools) {
+      const description = pool.description || "";
+      const match = description.match(idRegex);
+      if (!match) continue;
+      const id = match[1];
+      if (!id) continue;
+      if (!map[id]) map[id] = [];
+      map[id].push(pool);
+    }
+    return map;
+  }, [pools]);
+
+  const searching = whistleSearch.trim().length > 0;
+  const baseWhistleMarkets = searching
+    ? allMarkets
+    : hotTag === "all"
+      ? hotMarkets
+      : hotTag === "New"
+        ? allMarkets.filter((market) => {
+          if (!market.createdAt) return false;
+          const createdAt = Date.parse(market.createdAt);
+          if (Number.isNaN(createdAt)) return false;
+          const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+          return createdAt >= cutoff;
+        })
+        : allMarkets.filter((market) => (market.tags || []).includes(hotTag));
+  const filteredWhistleMarkets = baseWhistleMarkets.filter((market) => {
+    if (!searching) return true;
+    const q = `${market.question || ""} ${market.slug || ""}`.toLowerCase();
+    return q.includes(whistleSearch.toLowerCase());
+  });
+  const visibleWhistleMarkets = searching ? filteredWhistleMarkets : filteredWhistleMarkets.slice(0, 20);
+
+  useEffect(() => {
+    const container = whistleRef.current;
+    if (!container) return;
+
+    const speed = 50; // px per second
+    let last = performance.now();
+    const tick = () => {
+      if (!container) return;
+      const now = performance.now();
+      const delta = (now - last) / 1000;
+      last = now;
+      const max = container.scrollWidth - container.clientWidth;
+      if (max > 0 && !whistlePausedRef.current) {
+        container.scrollLeft += speed * delta;
+        if (container.scrollLeft >= max - 1) {
+          container.scrollLeft = 0;
+        }
+      }
+    };
+
+    const pause = () => {
+      if (!container) return;
+      whistlePausedRef.current = true;
+      if (whistlePauseRef.current) window.clearTimeout(whistlePauseRef.current);
+      whistlePauseRef.current = window.setTimeout(() => {
+        whistlePausedRef.current = false;
+      }, 1400);
+    };
+
+    const onEnter = () => {
+      whistlePausedRef.current = true;
+    };
+    const onLeave = () => {
+      whistlePausedRef.current = false;
+    };
+
+    whistlePausedRef.current = false;
+    container.addEventListener("mouseenter", onEnter);
+    container.addEventListener("mouseleave", onLeave);
+    container.addEventListener("wheel", pause, { passive: true });
+
+    const interval = window.setInterval(tick, 16);
+    return () => {
+      window.clearInterval(interval);
+      container.removeEventListener("mouseenter", onEnter);
+      container.removeEventListener("mouseleave", onLeave);
+      container.removeEventListener("wheel", pause);
+      if (whistlePauseRef.current) window.clearTimeout(whistlePauseRef.current);
+    };
+  }, [hotMarkets, hotTag, whistleSearch, visibleWhistleMarkets.length]);
 
   useEffect(() => {
     const rails = Array.from(document.querySelectorAll<HTMLElement>(".pool-slider-rail"));
@@ -618,6 +740,131 @@ export default function HomePage() {
             >
               Closed
             </button>
+          </div>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="section-header">
+          <div>
+            <h2 className="section-title">Whistle</h2>
+            <p className="muted">Do you have intel on these markets? Monetize it now.</p>
+          </div>
+          <span className="pill">Polymarket</span>
+        </div>
+        {marketsStatus && <div className="message">{marketsStatus}</div>}
+        {!marketsStatus && allMarkets.length === 0 && (
+          <div className="message">Loading markets...</div>
+        )}
+        <div className="input-row">
+          <button className={`button ${hotTag === "all" ? "cta" : ""}`} onClick={() => setHotTag("all")}>
+            Hot
+          </button>
+          {[
+            "New",
+            "Politics",
+            "Sports",
+            "Crypto",
+            "Finance",
+            "Geopolitics",
+            "Earnings",
+            "Tech",
+            "Culture",
+            "World",
+            "Economy",
+            "Climate & Science",
+            "Mentions",
+            "Elections"
+          ].map((tag) => (
+            <button
+              key={tag}
+              className={`button ${hotTag === tag ? "cta" : ""}`}
+              onClick={() => setHotTag(tag)}
+            >
+              {tag}
+            </button>
+          ))}
+          <input
+            className="input"
+            placeholder="Search market"
+            value={whistleSearch}
+            onChange={(event) => setWhistleSearch(event.target.value)}
+            style={{ maxWidth: 240 }}
+          />
+        </div>
+        <div className="whistle-rail">
+          <div className="whistle-track" ref={whistleRef}>
+            {filteredWhistleMarkets.length === 0 ? (
+              <div className="message">No markets found for this {whistleSearch.trim() ? "search" : "filter"}.</div>
+            ) : (
+              visibleWhistleMarkets.map((market) => {
+                const tags = Array.isArray(market.tags) ? market.tags : [];
+                const category = tags[0] || "Market";
+                const tips = polymarketTipsById[String(market.id)] || [];
+                const tipsExpanded = expandedMarketTips[String(market.id)];
+                const params = new URLSearchParams();
+                params.set("pm_category", category);
+                params.set("pm_question", market.question || "");
+                params.set("pm_slug", market.slug || "");
+                params.set("pm_id", String(market.id || ""));
+                params.set("pm_end", market.endDate || "");
+                if (tags.length) params.set("pm_tags", tags.join("|"));
+                const tipHref = `/create?${params.toString()}`;
+                return (
+                  <div key={market.id} className="card">
+                  <div className="stat-row" style={{ position: "relative" }}>
+                    {market.image && (
+                      <img
+                        src={market.image}
+                        alt={market.question}
+                          style={{ width: 40, height: 40, borderRadius: 10, objectFit: "cover" }}
+                        />
+                      )}
+                      <div>
+                        <p className="muted">Polymarket</p>
+                        <h3 style={{ margin: 0 }}>{market.question}</h3>
+                      </div>
+                      {tips.length > 0 && (
+                        <div className="tip-indicator">
+                          <span className="tip-count">{tips.length}</span>
+                          <button
+                            type="button"
+                            className={`tip-dot ${tipsExpanded ? "active" : ""}`}
+                            title="Tips available"
+                            onClick={() =>
+                              setExpandedMarketTips((prev) => ({
+                                ...prev,
+                                [String(market.id)]: !prev[String(market.id)]
+                              }))
+                            }
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div className="stat-row">
+                      <span className="stat">24h volume: {Number(market.volume24hr || 0).toFixed(0)}</span>
+                      <span className="stat">Ends: {new Date(market.endDate).toLocaleDateString()}</span>
+                    </div>
+                    {tipsExpanded && tips.length > 0 && (
+                      <div className="tip-list">
+                        <span className="muted">Tips available:</span>
+                        {tips.map((pool) => (
+                          <Link key={pool.id} className="tip-link" href={`/pool/${pool.id}`}>
+                            {pool.title || pool.id}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                    <div className="stat-row">
+                      <span className="muted">Have insight on this market? Create a pool.</span>
+                      <Link className="button cta" href={tipHref}>
+                        Tip on this
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </section>

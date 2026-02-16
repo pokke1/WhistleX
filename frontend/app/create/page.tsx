@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { createPool, uploadIntel } from "../../lib/api";
 import { createPoolOnchain, normalizeHex } from "../../lib/onchain";
 import { buildTacoCondition, encryptWithTaco } from "../../lib/taco";
@@ -14,10 +15,14 @@ function toUnixTimestamp(input: string) {
 
 export default function CreatePoolPage() {
   const CURRENCY_SYMBOL = "USDC";
+  const searchParams = useSearchParams();
   const [poolId, setPoolId] = useState("");
   const [investigator, setInvestigator] = useState("");
+  const [pmCategory, setPmCategory] = useState("");
+  const [pmMarketId, setPmMarketId] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [userDescription, setUserDescription] = useState("");
   const [threshold, setThreshold] = useState("0");
   const [minContribution, setMinContribution] = useState("0");
   const [ciphertext, setCiphertext] = useState("");
@@ -35,6 +40,34 @@ export default function CreatePoolPage() {
     thresholdValue > 0 && Number.isFinite(minContributionValue)
       ? Math.min(100, Math.max(0, (minContributionValue / thresholdValue) * 100))
       : 0;
+
+  useEffect(() => {
+    if (!searchParams) return;
+    const category = (searchParams.get("pm_category") || "").trim();
+    const marketId = (searchParams.get("pm_id") || "").trim();
+    const slug = (searchParams.get("pm_slug") || "").trim();
+    const endDate = (searchParams.get("pm_end") || "").trim();
+
+    if (category && !pmCategory) setPmCategory(category);
+    if (marketId && !pmMarketId) setPmMarketId(marketId);
+    if (!title) setTitle("");
+    if (endDate && !deadline) {
+      const dt = new Date(endDate);
+      if (!Number.isNaN(dt.getTime())) {
+        const iso = dt.toISOString().slice(0, 16);
+        setDeadline(iso);
+      }
+    }
+    if (marketId) {
+      const marker = `<!-- polymarket_id:${marketId} -->`;
+      const slugMarker = slug ? `<!-- polymarket_slug:${slug} -->` : "";
+      const combined = [marker, slugMarker].filter(Boolean).join("\n");
+      if (!description.includes(marker)) {
+        const next = description ? `${description}\n\n${combined}` : combined;
+        setDescription(next);
+      }
+    }
+  }, [searchParams, title, description, pmCategory, pmMarketId]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -73,6 +106,7 @@ export default function CreatePoolPage() {
       const policy = buildTacoCondition(onchain.poolAddress, minContribution);
       setMessageKit(kit);
 
+      const finalDescription = [userDescription.trim(), description.trim()].filter(Boolean).join("\n\n");
       await createPool({
         id: onchain.poolAddress,
         investigator: onchain.investigator,
@@ -81,7 +115,7 @@ export default function CreatePoolPage() {
         deadline: deadlineTimestamp,
         ciphertext: normalizedCipher,
         title,
-        description
+        description: finalDescription
       });
 
       await uploadIntel({ poolId: onchain.poolAddress, ciphertext: normalizedCipher, messageKit: kit });
@@ -124,13 +158,17 @@ export default function CreatePoolPage() {
         <div className="create-details-row">
           <label className="block">
             <span className="muted">Title</span>
-            <input
-              className="input"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g., Insider report on protocol XYZ"
-              required
-            />
+            <div className="input-row" style={{ alignItems: "center" }}>
+              {pmCategory && <span className="pill">{pmCategory}</span>}
+              <input
+                className="input"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g., Insider report on protocol XYZ"
+                required
+                style={{ flex: 1 }}
+              />
+            </div>
           </label>
           <label className="block">
             <span className="muted">Deadline</span>
@@ -149,11 +187,17 @@ export default function CreatePoolPage() {
           <textarea
             className="input"
             style={{ minHeight: 120, width: "100%" }}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            value={userDescription}
+            onChange={(e) => setUserDescription(e.target.value)}
             placeholder="Context, scope, and what contributors can expect once unlocked."
             required
           />
+          {(pmCategory || pmMarketId) && (
+            <div className="input-row" style={{ marginTop: 8 }}>
+              {pmCategory && <span className="pill">Category: {pmCategory}</span>}
+              {pmMarketId && <span className="pill">Polymarket ID: {pmMarketId}</span>}
+            </div>
+          )}
         </label>
 
         <div className="panel" style={{ padding: 16 }}>

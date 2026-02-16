@@ -786,6 +786,43 @@ input[type="number"] {
   padding: 16px;
 }
 
+.pnl-positive {
+  color: var(--success);
+}
+
+.pnl-negative {
+  color: #ff2d55;
+}
+
+.trade-card {
+  position: relative;
+}
+
+.trade-dot {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.35);
+}
+
+.trade-dot-positive {
+  background: var(--success);
+  box-shadow: 0 0 8px rgba(90, 212, 172, 0.55);
+}
+
+.trade-dot-negative {
+  background: #ff2d55;
+  box-shadow: 0 0 8px rgba(255, 45, 85, 0.55);
+}
+
+.trade-dot-neutral {
+  background: var(--muted);
+  box-shadow: 0 0 6px rgba(154, 165, 181, 0.45);
+}
+
 .pool-slider-rail {
   overflow: visible;
   padding: 4px 8px;
@@ -809,6 +846,108 @@ input[type="number"] {
   scrollbar-color: rgba(77, 163, 255, 0.35) rgba(13, 16, 22, 0.4);
 }
 
+.whistle-rail {
+  overflow: hidden;
+}
+
+.whistle-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 320px;
+  column-gap: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 6px;
+  padding-top: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(77, 163, 255, 0.35) rgba(13, 16, 22, 0.4);
+}
+
+.whistle-track::-webkit-scrollbar {
+  height: 6px;
+}
+
+.whistle-track::-webkit-scrollbar-track {
+  background: rgba(13, 16, 22, 0.4);
+  border-radius: 999px;
+}
+
+.whistle-track::-webkit-scrollbar-thumb {
+  background: rgba(77, 163, 255, 0.35);
+  border-radius: 999px;
+  border: 1px solid rgba(77, 163, 255, 0.2);
+}
+
+.tip-indicator {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tip-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(77, 163, 255, 0.65);
+  background: rgba(77, 163, 255, 0.3);
+  box-shadow: 0 0 8px rgba(77, 163, 255, 0.45);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  animation: tip-pulse 2.4s ease-in-out infinite;
+}
+
+.tip-dot.active {
+  transform: scale(1.15);
+  box-shadow: 0 0 12px rgba(77, 163, 255, 0.6);
+}
+
+.tip-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: #d9ecff;
+  text-shadow: 0 0 6px rgba(77, 163, 255, 0.7);
+}
+
+@keyframes tip-pulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 8px rgba(77, 163, 255, 0.45);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 0 14px rgba(77, 163, 255, 0.7);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 8px rgba(77, 163, 255, 0.45);
+  }
+}
+.tip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(12, 18, 28, 0.6);
+  border: 1px solid rgba(77, 163, 255, 0.15);
+}
+
+.tip-link {
+  font-size: 12px;
+  color: var(--text);
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(77, 163, 255, 0.25);
+  background: rgba(77, 163, 255, 0.12);
+}
 
 .pool-slider-track::-webkit-scrollbar {
   height: 6px;
