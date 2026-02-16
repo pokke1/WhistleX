@@ -61,6 +61,7 @@ export default function HomePage() {
     { id: string; slug: string; question: string; endDate: string; createdAt: string | null; volume24hr: number; image: string | null; tags: string[] }[]
   >([]);
   const [marketsStatus, setMarketsStatus] = useState<string | null>(null);
+  const [marketsLoading, setMarketsLoading] = useState<boolean>(false);
   const [hotTag, setHotTag] = useState<string>("all");
   const [whistleSearch, setWhistleSearch] = useState<string>("");
   const [expandedMarketTips, setExpandedMarketTips] = useState<Record<string, boolean>>({});
@@ -130,13 +131,15 @@ export default function HomePage() {
 
   useEffect(() => {
     setMarketsStatus(null);
+    setMarketsLoading(true);
     fetch("/api/polymarket/all")
       .then((res) => {
         if (!res.ok) throw new Error("failed to load Polymarket markets");
         return res.json();
       })
       .then((data) => setAllMarkets(data?.markets || []))
-      .catch((err: any) => setMarketsStatus(err?.message || "Failed to load Polymarket markets"));
+      .catch((err: any) => setMarketsStatus(err?.message || "Failed to load Polymarket markets"))
+      .finally(() => setMarketsLoading(false));
   }, []);
 
   const hotMarkets = useMemo(() => {
@@ -752,10 +755,13 @@ export default function HomePage() {
           </div>
           <span className="pill">Polymarket</span>
         </div>
-        {marketsStatus && <div className="message">{marketsStatus}</div>}
-        {!marketsStatus && allMarkets.length === 0 && (
-          <div className="message">Loading markets...</div>
+        {marketsLoading && (
+          <div className="message" style={{ marginTop: -6 }}>
+            <span className="loading-dot" />
+            Loading markets...
+          </div>
         )}
+        {!marketsLoading && marketsStatus && <div className="message">{marketsStatus}</div>}
         <div className="input-row">
           <button className={`button ${hotTag === "all" ? "cta" : ""}`} onClick={() => setHotTag("all")}>
             Hot
@@ -794,7 +800,7 @@ export default function HomePage() {
         </div>
         <div className="whistle-rail">
           <div className="whistle-track" ref={whistleRef}>
-            {filteredWhistleMarkets.length === 0 ? (
+            {!marketsLoading && filteredWhistleMarkets.length === 0 ? (
               <div className="message">No markets found for this {whistleSearch.trim() ? "search" : "filter"}.</div>
             ) : (
               visibleWhistleMarkets.map((market) => {

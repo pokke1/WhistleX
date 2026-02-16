@@ -569,6 +569,9 @@ input[type="number"] {
   padding: 12px;
   border-radius: 12px;
   font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .ticker {
@@ -1011,5 +1014,28 @@ input[type="number"] {
 
   .ticker-track {
     animation-duration: 36s;
+  }
+}
+.loading-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(77, 163, 255, 0.8);
+  box-shadow: 0 0 10px rgba(77, 163, 255, 0.8);
+  animation: loading-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes loading-pulse {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.8);
+    opacity: 0.6;
   }
 }
