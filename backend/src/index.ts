@@ -52,9 +52,10 @@ app.use("/intel", intelRouter);
 app.use("/profiles", profilesRouter);
 app.use("/votes", votesRouter);
 
-const port = Number(process.env.PORT) || 4000;
+const port = Number.parseInt(process.env.PORT ?? "8080", 10);
+
 app.listen(port, () => {
-  console.log(`backend listening on ${port}`);
+  console.log(`backend listening on 0.0.0.0:${port}`);
   if (process.env.FACTORY_ADDRESS) {
     startIndexer(process.env.FACTORY_ADDRESS);
   }
