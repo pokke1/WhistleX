@@ -36,6 +36,13 @@ interface Pool {
   title?: string;
   description?: string;
   policyId?: string;
+  attachments?: {
+    id?: string;
+    publicUrl: string;
+    mimeType: string;
+    sizeBytes: number;
+    path?: string;
+  }[];
 }
 
 export default function PoolDetailPage() {
@@ -50,6 +57,8 @@ export default function PoolDetailPage() {
   const [onchainState, setOnchainState] = useState<PoolOnchainState | null>(null);
   const [contributors, setContributors] = useState<PoolContributor[]>([]);
   const [contributorsStatus, setContributorsStatus] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewType, setPreviewType] = useState<"image" | "pdf" | null>(null);
   const { walletAddress, connectWallet } = useWallet();
 
   useEffect(() => {
@@ -155,10 +164,44 @@ export default function PoolDetailPage() {
         <h1 className="title">{pool.title || `Pool ${pool.id}`}</h1>
         {!pool.title && <p className="muted">{pool.id}</p>}
         {pool.description && <p className="muted">{pool.description}</p>}
+        {pool.attachments && pool.attachments.length > 0 && (
+          <div className="pool-attachments">
+            {pool.attachments.slice(0, 3).map((file) => (
+              <button
+                key={file.id || file.publicUrl}
+                type="button"
+                className="attachment-thumb"
+                onClick={() => {
+                  if (file.mimeType.startsWith("image/")) {
+                    setPreviewUrl(file.publicUrl);
+                    setPreviewType("image");
+                  } else {
+                    setPreviewUrl(file.publicUrl);
+                    setPreviewType("pdf");
+                  }
+                }}
+              >
+                {file.mimeType.startsWith("image/") ? (
+                  <img src={file.publicUrl} alt="Attachment preview" />
+                ) : (
+                  <span className="attachment-pdf">PDF</span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
         <p className="muted">
           Investigator:
           {" "}
-          <Link href={`/profile/${pool.investigator.toLowerCase()}`}>{pool.investigator}</Link>
+          <Link
+            href={`/profile/${pool.investigator.toLowerCase()}`}
+            onClick={(event) => {
+              event.preventDefault();
+              window.location.href = `/profile/${pool.investigator.toLowerCase()}`;
+            }}
+          >
+            {pool.investigator}
+          </Link>
         </p>
         <p className="muted">Threshold: {formatAmount(pool.threshold)} {CURRENCY_SYMBOL}</p>
         <p className="muted">Contribution to decrypt: {formatAmount(pool.minContributionForDecrypt)} {CURRENCY_SYMBOL}</p>
@@ -233,7 +276,13 @@ export default function PoolDetailPage() {
                 <div>
                   <p className="muted">Contributor</p>
                   <h3>
-                    <Link href={`/profile/${contributor.address}`}>
+                    <Link
+                      href={`/profile/${contributor.address}`}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        window.location.href = `/profile/${contributor.address}`;
+                      }}
+                    >
                       {contributor.address}
                     </Link>
                   </h3>
@@ -268,6 +317,31 @@ export default function PoolDetailPage() {
           </ol>
         </div>
       </section>
+
+      {previewUrl && (
+        <div className="media-modal-backdrop" onClick={() => { setPreviewUrl(null); setPreviewType(null); }}>
+          <div className="media-modal" onClick={(event) => event.stopPropagation()}>
+            {previewType === "image" ? (
+              <img
+                className="media-image"
+                src={previewUrl}
+                alt="Attachment preview"
+                onClick={() => {
+                  setPreviewUrl(null);
+                  setPreviewType(null);
+                }}
+              />
+            ) : (
+              <a className="button cta" href={previewUrl} target="_blank" rel="noreferrer">
+                Open PDF
+              </a>
+            )}
+            <button className="icon-button media-close" onClick={() => { setPreviewUrl(null); setPreviewType(null); }}>
+              x
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

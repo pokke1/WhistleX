@@ -9,7 +9,36 @@ router.get("/", async (_req: Request, res: Response) => {
   if (error) {
     return res.status(500).json({ error: error.message });
   }
-  const normalized = (data || []).map(fromDbPool);
+  const poolIds = (data || []).map((row) => row.id).filter(Boolean);
+  const attachmentsByPool = new Map<string, any[]>();
+  if (poolIds.length > 0) {
+    const filesResult = await supabase
+      .from("pool_files")
+      .select("id, poolid, public_url, mime_type, size_bytes, path, created_at")
+      .in("poolid", poolIds);
+    if (!filesResult.error) {
+      for (const file of filesResult.data || []) {
+        const poolId = String(file.poolid || "");
+        if (!attachmentsByPool.has(poolId)) {
+          attachmentsByPool.set(poolId, []);
+        }
+        attachmentsByPool.get(poolId)?.push({
+          id: file.id,
+          publicUrl: file.public_url,
+          mimeType: file.mime_type,
+          sizeBytes: file.size_bytes,
+          path: file.path,
+          createdAt: file.created_at
+        });
+      }
+    }
+  }
+
+  const normalized = (data || []).map((row) => {
+    const pool = fromDbPool(row);
+    const attachments = attachmentsByPool.get(String(pool.id)) || [];
+    return { ...pool, attachments };
+  });
   return res.json(normalized);
 });
 
@@ -107,6 +136,88 @@ router.post("/", async (req: Request, res: Response) => {
   }
 
   return res.json({ id, investigator, threshold, minContributionForDecrypt, deadline, ciphertext, policy, title, description });
+});
+
+router.post("/:poolId/files", async (req: Request, res: Response) => {
+  const poolId = req.params?.poolId;
+  if (!poolId) {
+    return res.status(400).json({ error: "poolId is required" });
+  }
+
+  const { data: poolRow, error: poolError } = await supabase
+    .from("pools")
+    .select("id")
+    .eq("id", poolId)
+    .maybeSingle();
+  if (poolError) {
+    return res.status(500).json({ error: poolError.message });
+  }
+  if (!poolRow) {
+    return res.status(404).json({ error: "pool not found" });
+  }
+
+  const files = Array.isArray(req.body?.files) ? req.body.files : [];
+  const MAX_FILES = 3;
+  const MAX_BYTES = 5 * 1024 * 1024;
+  if (files.length === 0) {
+    return res.status(400).json({ error: "files are required" });
+  }
+  if (files.length > MAX_FILES) {
+    return res.status(400).json({ error: "too many files (max 3)" });
+  }
+
+  const attachments = [];
+  for (const file of files) {
+    const name = String(file?.name || "attachment");
+    const type = String(file?.type || "");
+    const size = Number(file?.size || 0);
+    const data = String(file?.data || "");
+    if (!data) {
+      return res.status(400).json({ error: "file data missing" });
+    }
+    if (!(type.startsWith("image/") || type === "application/pdf")) {
+      return res.status(400).json({ error: `unsupported file type: ${type}` });
+    }
+    if (!Number.isFinite(size) || size <= 0 || size > MAX_BYTES) {
+      return res.status(400).json({ error: "file size exceeds 5MB limit" });
+    }
+
+    const buffer = Buffer.from(data, "base64");
+    if (buffer.length > MAX_BYTES) {
+      return res.status(400).json({ error: "file size exceeds 5MB limit" });
+    }
+
+    const safeName = name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `${poolId}/${Date.now()}-${safeName}`;
+    const uploadResult = await supabase.storage.from("pool-attachments").upload(path, buffer, {
+      contentType: type,
+      upsert: false
+    });
+    if (uploadResult.error) {
+      return res.status(500).json({ error: uploadResult.error.message });
+    }
+
+    const publicUrl = supabase.storage.from("pool-attachments").getPublicUrl(path).data.publicUrl;
+    const insertResult = await supabase.from("pool_files").insert({
+      poolid: poolId,
+      path,
+      public_url: publicUrl,
+      mime_type: type,
+      size_bytes: buffer.length
+    });
+    if (insertResult.error) {
+      return res.status(500).json({ error: insertResult.error.message });
+    }
+
+    attachments.push({
+      path,
+      publicUrl,
+      mimeType: type,
+      sizeBytes: buffer.length
+    });
+  }
+
+  return res.json({ poolId, attachments });
 });
 
 function toDbPool(payload: {

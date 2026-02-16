@@ -17,7 +17,14 @@ export default function ProfilePage() {
             {" "}
             <code>/profile/&lt;wallet-address&gt;</code>.
           </p>
-          <Link className="button" href="/">
+          <Link
+            className="button"
+            href="/"
+            onClick={(event) => {
+              event.preventDefault();
+              window.location.href = "/";
+            }}
+          >
             Back to marketplace
           </Link>
         </div>

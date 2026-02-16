@@ -38,6 +38,7 @@ export default function ProfileContent({
   const [status, setStatus] = useState<string | null>(null);
   const [polymarket, setPolymarket] = useState<PolymarketScorecardData | null>(null);
   const [polymarketStatus, setPolymarketStatus] = useState<string | null>(null);
+  const [vendorTab, setVendorTab] = useState<"created" | "contributed">("created");
 
   useEffect(() => {
     setStatus(null);
@@ -85,6 +86,12 @@ export default function ProfileContent({
       }),
     []
   );
+  const topCategories = useMemo(() => {
+    if (!polymarket) return [];
+    return [...polymarket.categories]
+      .sort((a, b) => (b.volumeUsdc || 0) - (a.volumeUsdc || 0))
+      .slice(0, 3);
+  }, [polymarket]);
 
   return (
     <main className="app-shell">
@@ -106,24 +113,46 @@ export default function ProfileContent({
               <h2 className="section-title">Vendor rating</h2>
               <span className="pill">{averageStars.toFixed(2)} / 5 stars</span>
             </div>
-            <div className="dashboard-grid">
-              <div className="dashboard-card">
-                <p className="muted">Average rating</p>
-                <h3 className="metric">{averageStars.toFixed(2)} / 5</h3>
-              </div>
-              <div className="dashboard-card">
-                <p className="muted">Total votes</p>
-                <h3 className="metric">{profile.vendorRating.totalVotes}</h3>
-              </div>
-              <div className="dashboard-card">
-                <p className="muted">Rating score</p>
-                <h3 className="metric">{profile.vendorRating.score}</h3>
-              </div>
-              <div className="dashboard-card">
-                <p className="muted">Pools created</p>
-                <h3 className="metric">{profile.createdPools.length}</h3>
-              </div>
+            <p className="muted" style={{ marginTop: 6 }}>
+              Rating {averageStars.toFixed(2)} / 5 • {profile.vendorRating.totalVotes} votes • Score {profile.vendorRating.score} •{" "}
+              {profile.createdPools.length} pools created
+            </p>
+            <div className="input-row" style={{ marginTop: 12 }}>
+              <button
+                className={`button ${vendorTab === "created" ? "cta" : ""}`}
+                onClick={() => setVendorTab("created")}
+              >
+                Pools created
+              </button>
+              <button
+                className={`button ${vendorTab === "contributed" ? "cta" : ""}`}
+                onClick={() => setVendorTab("contributed")}
+              >
+                Pools contributed
+              </button>
+              <span className="pill">
+                {vendorTab === "created" ? profile.createdPools.length : profile.contributedPools.length}
+              </span>
             </div>
+            {vendorTab === "created" ? (
+              profile.createdPools.length === 0 ? (
+                <div className="message" style={{ marginTop: 12 }}>No pools created yet.</div>
+              ) : (
+                <div className="list-grid list-scroll" style={{ marginTop: 12 }}>
+                  {profile.createdPools.map((pool) => (
+                    <PoolCard key={pool.id} pool={pool} />
+                  ))}
+                </div>
+              )
+            ) : profile.contributedPools.length === 0 ? (
+              <div className="message" style={{ marginTop: 12 }}>No contributions indexed for this wallet.</div>
+            ) : (
+              <div className="list-grid list-scroll" style={{ marginTop: 12 }}>
+                {profile.contributedPools.map((pool) => (
+                  <PoolCard key={pool.id} pool={pool} />
+                ))}
+              </div>
+            )}
           </section>
 
           <section className="panel">
@@ -146,7 +175,7 @@ export default function ProfileContent({
                   </div>
                   <div className="dashboard-card">
                     <p className="muted">Total PnL</p>
-                    <h3 className="metric">
+                    <h3 className={`metric ${polymarket.totalPnl == null ? "" : polymarket.totalPnl >= 0 ? "pnl-positive" : "pnl-negative"}`}>
                       {polymarket.totalPnl == null ? "N/A" : formatSignedUsd.format(polymarket.totalPnl)}
                     </h3>
                     {polymarket.totalPnlPartial && <p className="muted">Partial</p>}
@@ -155,16 +184,16 @@ export default function ProfileContent({
 
                 <div className="section-header" style={{ marginTop: 16 }}>
                   <h3 className="section-title">Categories traded</h3>
-                  <span className="pill">{polymarket.categories.length}</span>
+                  <span className="pill">{topCategories.length}</span>
                 </div>
-                {polymarket.categories.length === 0 ? (
+                {topCategories.length === 0 ? (
                   <div className="message">No Polymarket trades found for this address.</div>
                 ) : (
                   <div className="dashboard-grid">
-                    {polymarket.categories.map((category) => (
+                    {topCategories.map((category) => (
                       <div className="dashboard-card" key={category.category}>
                         <p className="muted">{category.category}</p>
-                        <h3 className="metric">
+                        <h3 className={`metric ${category.pnl == null ? "" : category.pnl >= 0 ? "pnl-positive" : "pnl-negative"}`}>
                           {category.pnl == null ? "N/A" : formatSignedUsd.format(category.pnl)}
                         </h3>
                         {category.pnlPartial && <p className="muted">Partial</p>}
@@ -182,9 +211,14 @@ export default function ProfileContent({
                       <h3 className="section-title">Recent trades</h3>
                       <span className="pill">{polymarket.trades.length}</span>
                     </div>
-                    <div className="list-grid">
-                      {polymarket.trades.slice(0, 6).map((trade, idx) => (
-                        <div className="list-card" key={`${trade.asset}-${trade.timestamp}-${idx}`}>
+                    <div className="list-grid list-scroll">
+                      {polymarket.trades.map((trade, idx) => (
+                        <div className="list-card trade-card" key={`${trade.asset}-${trade.timestamp}-${idx}`}>
+                          <span
+                            className={`trade-dot ${
+                              trade.pnl == null ? "trade-dot-neutral" : trade.pnl >= 0 ? "trade-dot-positive" : "trade-dot-negative"
+                            }`}
+                          />
                           <div>
                             <p className="muted">{trade.title || trade.marketSlug || "Polymarket trade"}</p>
                             <h3>
@@ -194,16 +228,31 @@ export default function ProfileContent({
                               <span className="stat">Price: {trade.price.toFixed(4)}</span>
                               <span className="stat">Volume: {formatUsd.format(trade.usdcSize)}</span>
                               <span className="stat">
-                                PnL: {trade.pnl == null ? "N/A" : formatSignedUsd.format(trade.pnl)}
+                                PnL:{" "}
+                                <span className={trade.pnl == null ? "" : trade.pnl >= 0 ? "pnl-positive" : "pnl-negative"}>
+                                  {trade.pnl == null ? "N/A" : formatSignedUsd.format(trade.pnl)}
+                                </span>
                               </span>
                             </div>
                           </div>
                           <div style={{ textAlign: "right" }}>
-                            <div className="pill">{trade.result || "Open"}</div>
+                            <div
+                              className={`pill ${
+                                trade.result === "Won"
+                                  ? "pill-positive"
+                                  : trade.result === "Lost"
+                                    ? "pill-negative"
+                                    : "pill-neutral"
+                              }`}
+                            >
+                              {trade.result || "Open"}
+                            </div>
                             <p className="muted" style={{ marginTop: 8 }}>
                               Resolved: {trade.resolvedOutcome || "Pending"}
                             </p>
-                            <p className="muted" style={{ marginTop: 4 }}>{trade.category}</p>
+                            <p className="muted" style={{ marginTop: 4 }}>
+                              Position: {trade.side} {trade.outcome || ""}
+                            </p>
                           </div>
                         </div>
                       ))}
@@ -217,37 +266,6 @@ export default function ProfileContent({
             )}
           </section>
 
-          <section className="panel">
-            <div className="section-header">
-              <h2 className="section-title">Pools contributed to</h2>
-              <span className="pill">{profile.contributedPools.length}</span>
-            </div>
-            {profile.contributedPools.length === 0 ? (
-              <div className="message">No contributions indexed for this wallet.</div>
-            ) : (
-              <div className="list-grid">
-                {profile.contributedPools.map((pool) => (
-                  <PoolCard key={pool.id} pool={pool} />
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section className="panel">
-            <div className="section-header">
-              <h2 className="section-title">Pools created</h2>
-              <span className="pill">{profile.createdPools.length}</span>
-            </div>
-            {profile.createdPools.length === 0 ? (
-              <div className="message">No pools created yet.</div>
-            ) : (
-              <div className="list-grid">
-                {profile.createdPools.map((pool) => (
-                  <PoolCard key={pool.id} pool={pool} />
-                ))}
-              </div>
-            )}
-          </section>
         </>
       )}
     </main>
@@ -269,7 +287,14 @@ function PoolCard({ pool }: { pool: PoolSummary }) {
           </div>
         )}
       </div>
-      <Link className="button" href={`/pool/${pool.id}`}>
+      <Link
+        className="button"
+        href={`/pool/${pool.id}`}
+        onClick={(event) => {
+          event.preventDefault();
+          window.location.href = `/pool/${pool.id}`;
+        }}
+      >
         View pool
       </Link>
     </div>

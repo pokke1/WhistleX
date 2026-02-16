@@ -9,6 +9,7 @@ import { describePolicy } from "../lib/tacoClient";
 import { utils } from "ethers";
 import { decryptIntelWithKey, parseSymmetricKey } from "../lib/symmetricCrypto";
 import { useWallet } from "./components/WalletProvider";
+import { useTicker } from "./components/TickerProvider";
 
 const CURRENCY_SYMBOL = "USDC";
 const DEFAULT_DECIMALS = Number(process.env.NEXT_PUBLIC_USDC_DECIMALS || "6");
@@ -36,6 +37,13 @@ interface Pool {
   ciphertext?: string;
   title?: string;
   description?: string;
+  attachments?: {
+    id?: string;
+    publicUrl: string;
+    mimeType: string;
+    sizeBytes: number;
+    path?: string;
+  }[];
 }
 
 interface IntelPayload {
@@ -46,6 +54,7 @@ interface IntelPayload {
 export default function HomePage() {
   const [pools, setPools] = useState<Pool[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [poolsLoading, setPoolsLoading] = useState<boolean>(false);
   const [intelByPool, setIntelByPool] = useState<Record<string, IntelPayload | null>>({});
   const [decryptedByPool, setDecryptedByPool] = useState<Record<string, string>>({});
   const [plaintextByPool, setPlaintextByPool] = useState<Record<string, string>>({});
@@ -55,6 +64,7 @@ export default function HomePage() {
   const [cipherExpandedByPool, setCipherExpandedByPool] = useState<Record<string, boolean>>({});
   const [investigatorExpandedByPool, setInvestigatorExpandedByPool] = useState<Record<string, boolean>>({});
   const [poolVisibilityFilter, setPoolVisibilityFilter] = useState<"all" | "open" | "closed">("all");
+  const [poolFilterOpen, setPoolFilterOpen] = useState<boolean>(false);
   const [ratingByInvestigator, setRatingByInvestigator] = useState<Record<string, number>>({});
   const [voteSummaryByPool, setVoteSummaryByPool] = useState<Record<string, { upvotes: number; downvotes: number }>>({});
   const [allMarkets, setAllMarkets] = useState<
@@ -68,18 +78,41 @@ export default function HomePage() {
   const whistleRef = useRef<HTMLDivElement | null>(null);
   const whistlePauseRef = useRef<number | null>(null);
   const whistlePausedRef = useRef<boolean>(false);
+  const whistleEdgeDirRef = useRef<0 | -1 | 1>(0);
+  const whistleEdgeRafRef = useRef<number | null>(null);
+  const whistleHoverRef = useRef<boolean>(false);
+  const whistleResumeTimeoutRef = useRef<number | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewType, setPreviewType] = useState<"image" | "pdf" | null>(null);
   const { walletAddress, connectWallet } = useWallet();
+  const { setItems: setTickerItems } = useTicker();
   const unlockedPools = pools.filter((pool) => onchainStateByPool[pool.id]?.unlocked);
   const recentlyListed = pools.slice(-6).reverse();
-  const tickerItems = [
-    ...recentlyListed.map((pool) => `Listed: ${pool.title || shortAddress(pool.id)}`),
-    ...unlockedPools.slice(0, 6).map((pool) => `Unlocked: ${pool.title || shortAddress(pool.id)}`)
-  ];
+  const tickerItems = useMemo(() => {
+    return [
+      ...recentlyListed.map((pool) => `Listed: ${pool.title || shortAddress(pool.id)}`),
+      ...unlockedPools.slice(0, 6).map((pool) => `Unlocked: ${pool.title || shortAddress(pool.id)}`)
+    ];
+  }, [recentlyListed, unlockedPools]);
 
   useEffect(() => {
+    const payload = tickerItems.length ? tickerItems : ["Live updates will appear as pools list and unlock."];
+    setTickerItems((prev) => {
+      if (prev.length === payload.length && prev.every((item, idx) => item === payload[idx])) {
+        return prev;
+      }
+      return payload;
+    });
+    return () => setTickerItems([]);
+  }, [tickerItems, setTickerItems]);
+
+  useEffect(() => {
+    setError(null);
+    setPoolsLoading(true);
     fetchPools()
       .then(setPools)
-      .catch((err) => setError(err.message));
+      .catch((err) => setError(err.message))
+      .finally(() => setPoolsLoading(false));
   }, []);
 
   useEffect(() => {
@@ -204,11 +237,9 @@ export default function HomePage() {
       const delta = (now - last) / 1000;
       last = now;
       const max = container.scrollWidth - container.clientWidth;
-      if (max > 0 && !whistlePausedRef.current) {
-        container.scrollLeft += speed * delta;
-        if (container.scrollLeft >= max - 1) {
-          container.scrollLeft = 0;
-        }
+      if (max > 0 && !whistlePausedRef.current && !whistleHoverRef.current) {
+        const next = container.scrollLeft + speed * delta;
+        container.scrollLeft = next >= max ? next % max : next;
       }
     };
 
@@ -217,31 +248,81 @@ export default function HomePage() {
       whistlePausedRef.current = true;
       if (whistlePauseRef.current) window.clearTimeout(whistlePauseRef.current);
       whistlePauseRef.current = window.setTimeout(() => {
-        whistlePausedRef.current = false;
+        if (!whistleHoverRef.current) {
+          whistlePausedRef.current = false;
+        }
       }, 1400);
     };
 
-    const onEnter = () => {
-      whistlePausedRef.current = true;
-    };
-    const onLeave = () => {
-      whistlePausedRef.current = false;
-    };
-
     whistlePausedRef.current = false;
-    container.addEventListener("mouseenter", onEnter);
-    container.addEventListener("mouseleave", onLeave);
     container.addEventListener("wheel", pause, { passive: true });
 
     const interval = window.setInterval(tick, 16);
     return () => {
       window.clearInterval(interval);
-      container.removeEventListener("mouseenter", onEnter);
-      container.removeEventListener("mouseleave", onLeave);
       container.removeEventListener("wheel", pause);
       if (whistlePauseRef.current) window.clearTimeout(whistlePauseRef.current);
+      if (whistleResumeTimeoutRef.current) window.clearTimeout(whistleResumeTimeoutRef.current);
     };
   }, [hotMarkets, hotTag, whistleSearch, visibleWhistleMarkets.length]);
+
+  useEffect(() => {
+    const container = whistleRef.current;
+    if (!container) return;
+
+    const EDGE_ZONE = 36;
+    const SPEED = 140; // px per second
+    let last = performance.now();
+
+    const step = () => {
+      const dir = whistleEdgeDirRef.current;
+      if (!container || dir === 0) {
+        whistleEdgeRafRef.current = null;
+        return;
+      }
+      const now = performance.now();
+      const delta = (now - last) / 1000;
+      last = now;
+      const max = container.scrollWidth - container.clientWidth;
+      if (max > 0) {
+        container.scrollLeft = Math.max(0, Math.min(max, container.scrollLeft + dir * SPEED * delta));
+      }
+      whistleEdgeRafRef.current = requestAnimationFrame(step);
+    };
+
+    const onMove = (event: MouseEvent) => {
+      const rect = container.getBoundingClientRect();
+      const offset = event.clientX - rect.left;
+      let dir: 0 | -1 | 1 = 0;
+      if (offset <= EDGE_ZONE) dir = -1;
+      else if (offset >= rect.width - EDGE_ZONE) dir = 1;
+
+      if (dir !== whistleEdgeDirRef.current) {
+        whistleEdgeDirRef.current = dir;
+        if (dir !== 0) {
+          whistlePausedRef.current = true;
+          last = performance.now();
+          if (whistleEdgeRafRef.current == null) {
+            whistleEdgeRafRef.current = requestAnimationFrame(step);
+          }
+        }
+      }
+    };
+
+    const onLeave = () => {
+      whistleEdgeDirRef.current = 0;
+    };
+
+    container.addEventListener("mousemove", onMove);
+    container.addEventListener("mouseleave", onLeave);
+    return () => {
+      container.removeEventListener("mousemove", onMove);
+      container.removeEventListener("mouseleave", onLeave);
+      if (whistleEdgeRafRef.current != null) cancelAnimationFrame(whistleEdgeRafRef.current);
+      whistleEdgeRafRef.current = null;
+      whistleEdgeDirRef.current = 0;
+    };
+  }, [visibleWhistleMarkets.length]);
 
   useEffect(() => {
     const rails = Array.from(document.querySelectorAll<HTMLElement>(".pool-slider-rail"));
@@ -470,7 +551,11 @@ export default function HomePage() {
               <Link
                 className="stat-link"
                 href={`/profile/${pool.investigator.toLowerCase()}`}
-                onClick={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  event.preventDefault();
+                  window.location.href = `/profile/${pool.investigator.toLowerCase()}`;
+                }}
               >
                 {investigatorExpandedByPool[pool.id] ? pool.investigator : shortAddress(pool.investigator)}
               </Link>
@@ -527,6 +612,36 @@ export default function HomePage() {
           <h3>{pool.title || pool.id}</h3>
           {pool.description && <p className="muted" style={{ marginTop: 4 }}>{pool.description}</p>}
           {!pool.title && <p className="muted" style={{ fontSize: 12 }}>{pool.id}</p>}
+          {pool.attachments && pool.attachments.length > 0 && (
+            <div
+              className="pool-attachments"
+              onClick={(event) => event.stopPropagation()}
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              {pool.attachments.slice(0, 3).map((file) => (
+                <button
+                  key={file.id || file.publicUrl}
+                  type="button"
+                  className="attachment-thumb"
+                  onClick={() => {
+                    if (file.mimeType.startsWith("image/")) {
+                      setPreviewUrl(file.publicUrl);
+                      setPreviewType("image");
+                    } else {
+                      setPreviewUrl(file.publicUrl);
+                      setPreviewType("pdf");
+                    }
+                  }}
+                >
+                  {file.mimeType.startsWith("image/") ? (
+                    <img src={file.publicUrl} alt="Attachment preview" />
+                  ) : (
+                    <span className="attachment-pdf">PDF</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="pool-progress">
             <div className="progress-track">
@@ -679,52 +794,28 @@ export default function HomePage() {
   return (
     <main className="app-shell">
       <header className="top-bar">
-        <div>
-          <h1 className="title">WhistleX</h1>
-          <p className="subtitle">
-            TACo-secured marketplace for encrypted intelligence. Fund, unlock, and decrypt once the crowd meets the goal.
-          </p>
-        </div>
-        <div className="input-row">
-          <Link className="primary-btn" href="/create">
-            Create pool
-          </Link>
-        </div>
+        <div />
+        <div />
       </header>
 
       {error && <div className="message"> {error} </div>}
 
-      <section className="ticker" aria-label="Live pool updates">
-        <div className="ticker-track">
-          <div className="ticker-group">
-            {(tickerItems.length ? tickerItems : ["Live updates will appear as pools list and unlock."]).map(
-              (item, index) => (
-                <span key={`ticker-${index}`} className="ticker-item">
-                  {item}
-                </span>
-              )
-            )}
-          </div>
-          <div className="ticker-group" aria-hidden="true">
-            {(tickerItems.length ? tickerItems : ["Live updates will appear as pools list and unlock."]).map(
-              (item, index) => (
-                <span key={`ticker-ghost-${index}`} className="ticker-item">
-                  {item}
-                </span>
-              )
-            )}
-          </div>
-        </div>
-      </section>
-
-
       <section className="panel">
         <div className="section-header">
           <div className="section-title-row">
-            <h2 className="section-title">Marketplace filters</h2>
+            <h2 className="section-title">Pools Filters</h2>
             <span className="pill">{pools.length} total</span>
           </div>
-          <div className="input-row">
+          <button
+            type="button"
+            className="button tiny"
+            onClick={() => setPoolFilterOpen((prev) => !prev)}
+          >
+            {poolFilterOpen ? "Hide filters" : "Show filters"}
+          </button>
+        </div>
+        {poolFilterOpen && (
+          <div className="input-row" style={{ marginTop: 8 }}>
             <button
               className={`button ${poolVisibilityFilter === "all" ? "cta" : ""}`}
               onClick={() => setPoolVisibilityFilter("all")}
@@ -744,7 +835,7 @@ export default function HomePage() {
               Closed
             </button>
           </div>
-        </div>
+        )}
       </section>
 
       <section className="panel">
@@ -799,7 +890,28 @@ export default function HomePage() {
           />
         </div>
         <div className="whistle-rail">
-          <div className="whistle-track" ref={whistleRef}>
+          <div
+            className="whistle-track"
+            ref={whistleRef}
+            onPointerEnter={() => {
+              whistleHoverRef.current = true;
+              whistlePausedRef.current = true;
+              if (whistleResumeTimeoutRef.current) {
+                window.clearTimeout(whistleResumeTimeoutRef.current);
+                whistleResumeTimeoutRef.current = null;
+              }
+            }}
+            onPointerLeave={() => {
+              whistleHoverRef.current = false;
+              if (whistleResumeTimeoutRef.current) {
+                window.clearTimeout(whistleResumeTimeoutRef.current);
+              }
+              whistleResumeTimeoutRef.current = window.setTimeout(() => {
+                whistlePausedRef.current = false;
+                whistleResumeTimeoutRef.current = null;
+              }, 220);
+            }}
+          >
             {!marketsLoading && filteredWhistleMarkets.length === 0 ? (
               <div className="message">No markets found for this {whistleSearch.trim() ? "search" : "filter"}.</div>
             ) : (
@@ -855,7 +967,15 @@ export default function HomePage() {
                       <div className="tip-list">
                         <span className="muted">Tips available:</span>
                         {tips.map((pool) => (
-                          <Link key={pool.id} className="tip-link" href={`/pool/${pool.id}`}>
+                          <Link
+                            key={pool.id}
+                            className="tip-link"
+                            href={`/pool/${pool.id}`}
+                            onClick={(event) => {
+                              event.preventDefault();
+                              window.location.href = `/pool/${pool.id}`;
+                            }}
+                          >
                             {pool.title || pool.id}
                           </Link>
                         ))}
@@ -863,7 +983,14 @@ export default function HomePage() {
                     )}
                     <div className="stat-row">
                       <span className="muted">Have insight on this market? Create a pool.</span>
-                      <Link className="button cta" href={tipHref}>
+                      <Link
+                        className="button cta"
+                        href={tipHref}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          window.location.href = tipHref;
+                        }}
+                      >
                         Tip on this
                       </Link>
                     </div>
@@ -881,9 +1008,16 @@ export default function HomePage() {
             <h2 className="section-title">Open pools</h2>
             <span className="pill">{visibleOpenPools.length} listed</span>
           </div>
-
-          {visibleOpenPools.length === 0 && <div className="message">No open pools for the selected filter.</div>}
-          <div className="grid">{visibleOpenPools.map(renderPoolCard)}</div>
+          {poolsLoading && (
+            <div className="message">
+              <span className="loading-dot" />
+              Loading pools...
+            </div>
+          )}
+          {!poolsLoading && visibleOpenPools.length === 0 && (
+            <div className="message">No open pools for the selected filter.</div>
+          )}
+          {!poolsLoading && <div className="grid">{visibleOpenPools.map(renderPoolCard)}</div>}
         </section>
       )}
 
@@ -893,11 +1027,46 @@ export default function HomePage() {
             <h2 className="section-title">Closed pools</h2>
             <span className="pill">{visibleClosedPools.length} listed</span>
           </div>
-          {visibleClosedPools.length === 0 && <div className="message">No closed pools for the selected filter.</div>}
-          <div className="pool-slider-rail">
-            <div className="pool-slider-track">{visibleClosedPools.map(renderPoolCard)}</div>
-          </div>
+          {poolsLoading && (
+            <div className="message">
+              <span className="loading-dot" />
+              Loading pools...
+            </div>
+          )}
+          {!poolsLoading && visibleClosedPools.length === 0 && (
+            <div className="message">No closed pools for the selected filter.</div>
+          )}
+          {!poolsLoading && (
+            <div className="pool-slider-rail">
+              <div className="pool-slider-track">{visibleClosedPools.map(renderPoolCard)}</div>
+            </div>
+          )}
         </section>
+      )}
+
+      {previewUrl && (
+        <div className="media-modal-backdrop" onClick={() => { setPreviewUrl(null); setPreviewType(null); }}>
+          <div className="media-modal" onClick={(event) => event.stopPropagation()}>
+            {previewType === "image" ? (
+              <img
+                className="media-image"
+                src={previewUrl}
+                alt="Attachment preview"
+                onClick={() => {
+                  setPreviewUrl(null);
+                  setPreviewType(null);
+                }}
+              />
+            ) : (
+              <a className="button cta" href={previewUrl} target="_blank" rel="noreferrer">
+                Open PDF
+              </a>
+            )}
+            <button className="icon-button media-close" onClick={() => { setPreviewUrl(null); setPreviewType(null); }}>
+              x
+            </button>
+          </div>
+        </div>
       )}
     </main>
   );

@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { ReactNode } from "react";
 import AppNav from "./components/AppNav";
+import { TickerProvider } from "./components/TickerProvider";
 import { WalletProvider } from "./components/WalletProvider";
 
 export const metadata = {
@@ -13,8 +14,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en">
       <body>
         <WalletProvider>
-          <AppNav />
-          {children}
+          <TickerProvider>
+            <AppNav />
+            {children}
+          </TickerProvider>
         </WalletProvider>
       </body>
     </html>

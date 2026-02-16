@@ -56,7 +56,7 @@ export interface PoolOnchainState {
 }
 
 async function ensureAmoyNetwork(ethereum: any, provider: providers.Web3Provider) {
-  const { chainId } = await provider.getNetwork();
+  let { chainId } = await provider.getNetwork();
 
   if (chainId !== AMOY_CHAIN_ID_DEC) {
     console.log("Incorrect network detected. Attempting to switch to Polygon Amoy...");
@@ -80,13 +80,24 @@ async function ensureAmoyNetwork(ethereum: any, provider: providers.Web3Provider
                 symbol: 'POL',
                 decimals: 18
             },
-            rpcUrls: ['rpc-amoy.polygon.technology'],
-            blockExplorerUrls: ['amoy.polygonscan.com'],
+            rpcUrls: ['https://rpc-amoy.polygon.technology', 'https://polygon-amoy.drpc.org'],
+            blockExplorerUrls: ['https://amoy.polygonscan.com'],
           }],
         });
+        await ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: AMOY_CHAIN_ID_HEX }],
+        });
       } else {
-        throw new Error(`Please connect to the Polygon Amoy Testnet in your wallet. Error code: ${switchError.code}`);
+        throw new Error(`Wallet did not switch to Polygon Amoy. Please open your wallet and select Amoy (chainId 80002). Error code: ${switchError.code}`);
       }
+    }
+
+    // Re-check after switch/add.
+    const refreshed = await provider.getNetwork();
+    chainId = refreshed.chainId;
+    if (chainId !== AMOY_CHAIN_ID_DEC) {
+      throw new Error("Wallet is still not on Polygon Amoy. Open your wallet and select Amoy (chainId 80002), then retry.");
     }
   }
 }

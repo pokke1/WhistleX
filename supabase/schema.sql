@@ -82,3 +82,42 @@ select
 from public.pools p
 left join public.pool_votes pv on pv.poolid = p.id
 group by p.investigator;
+
+create table if not exists public.pool_files (
+  id uuid primary key default gen_random_uuid(),
+  poolid text not null references public.pools(id) on delete cascade,
+  path text not null,
+  public_url text not null,
+  mime_type text not null,
+  size_bytes bigint not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_pool_files_poolid on public.pool_files(poolid);
+
+insert into storage.buckets (id, name, public)
+values ('pool-attachments', 'pool-attachments', true)
+on conflict do nothing;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'storage'
+      and tablename = 'objects'
+      and policyname = 'Public read pool attachments'
+  ) then
+    execute 'create policy "Public read pool attachments" on storage.objects
+      for select using (bucket_id = ''pool-attachments'')';
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'storage'
+      and tablename = 'objects'
+      and policyname = 'Public insert pool attachments'
+  ) then
+    execute 'create policy "Public insert pool attachments" on storage.objects
+      for insert with check (bucket_id = ''pool-attachments'')';
+  end if;
+end $$;

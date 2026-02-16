@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { createPool, uploadIntel } from "../../lib/api";
+import { createPool, uploadIntel, uploadPoolFiles } from "../../lib/api";
 import { createPoolOnchain, normalizeHex } from "../../lib/onchain";
 import { buildTacoCondition, encryptWithTaco } from "../../lib/taco";
 import SymmetricEncryptor from "./SymmetricEncryptor";
@@ -30,6 +30,8 @@ export default function CreatePoolPage() {
   const [deadline, setDeadline] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [messageKit, setMessageKit] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [attachmentStatus, setAttachmentStatus] = useState<string | null>(null);
   const thresholdValue = Number(threshold);
   const minContributionValue = Number(minContribution);
   const progressPercent =
@@ -69,10 +71,51 @@ export default function CreatePoolPage() {
     }
   }, [searchParams, title, description, pmCategory, pmMarketId]);
 
+  async function fileToBase64(file: File) {
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(reader.error || new Error("Failed to read file"));
+      reader.readAsDataURL(file);
+    });
+    const [, base64] = dataUrl.split(",");
+    return base64 || "";
+  }
+
+  function handleAttachmentSelect(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = event.target.files;
+    if (!files) return;
+    const next = [...attachments];
+    let message = "";
+    for (const file of Array.from(files)) {
+      if (next.length >= 3) {
+        message = "Max 3 files per pool.";
+        break;
+      }
+      if (!(file.type.startsWith("image/") || file.type === "application/pdf")) {
+        message = "Only images and PDF files are supported.";
+        continue;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        message = "Each file must be 5MB or less.";
+        continue;
+      }
+      next.push(file);
+    }
+    setAttachments(next);
+    setAttachmentStatus(message || null);
+    event.target.value = "";
+  }
+
+  function removeAttachment(index: number) {
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setStatus("Submitting pool to Polygon Amoy...");
     setMessageKit(null);
+    setAttachmentStatus(null);
 
     const deadlineTimestamp = toUnixTimestamp(deadline);
     if (!deadlineTimestamp) {
@@ -118,9 +161,22 @@ export default function CreatePoolPage() {
         description: finalDescription
       });
 
+      if (attachments.length > 0) {
+        setStatus("Uploading attachments...");
+        const payload = await Promise.all(
+          attachments.map(async (file) => ({
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            data: await fileToBase64(file)
+          }))
+        );
+        await uploadPoolFiles(onchain.poolAddress, payload);
+      }
+
       await uploadIntel({ poolId: onchain.poolAddress, ciphertext: normalizedCipher, messageKit: kit });
 
-      setStatus("Pool created, TACo policy recorded, and intel stored");
+      setStatus("Pool created, attachments stored, TACo policy recorded, and intel stored");
       console.log("Stored policy", policy);
     } catch (err: any) {
       setStatus(err.message || "Failed to create pool");
@@ -131,9 +187,9 @@ export default function CreatePoolPage() {
     <main className="app-shell space-y-5">
       <header className="top-bar">
         <div>
-          <h1 className="title">Create a TACo-protected Intel Pool</h1>
+          <h1 className="title">Create a secret intel pool</h1>
           <p className="subtitle">
-            Encrypt your intel locally, wrap the symmetric key with TACo, and publish a pool funded in USDC on Polygon Amoy.
+            Encrypt your intel locally in your browser, set funding rules, and publish a pool. Only eligible contributors can decrypt once unlocked.
           </p>
         </div>
         <div className="pill">Investigator</div>
@@ -199,6 +255,41 @@ export default function CreatePoolPage() {
             </div>
           )}
         </label>
+
+        <div className="panel" style={{ padding: 16 }}>
+          <div className="section-header">
+            <h3 className="section-title">Attachments</h3>
+            <span className="pill">Images + PDF · Max 3</span>
+          </div>
+          <p className="muted" style={{ marginTop: 6 }}>
+            Add up to three files (5MB each). Attachments appear as previews on the pool card.
+          </p>
+          <div className="input-row" style={{ marginTop: 10 }}>
+            <input
+              className="input"
+              type="file"
+              accept="image/*,application/pdf"
+              multiple
+              onChange={handleAttachmentSelect}
+            />
+            <span className="pill">{attachments.length}/3</span>
+          </div>
+          {attachmentStatus && <div className="message" style={{ marginTop: 8 }}>{attachmentStatus}</div>}
+          {attachments.length > 0 && (
+            <div className="attachment-list" style={{ marginTop: 10 }}>
+              {attachments.map((file, index) => (
+                <div className="attachment-item" key={`${file.name}-${index}`}>
+                  <span className="pill">{file.type.startsWith("image/") ? "Image" : "PDF"}</span>
+                  <span className="muted">{file.name}</span>
+                  <span className="muted">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                  <button type="button" className="button tiny" onClick={() => removeAttachment(index)}>
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="panel" style={{ padding: 16 }}>
           <div className="section-header">

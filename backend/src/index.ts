@@ -12,7 +12,7 @@ dotenv.config();
 console.log("Starting backend server...");
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: "25mb" }));
 app.use(morgan("dev"));
 
 // Lightweight CORS handler so the Next.js frontend (localhost:3000) can call the API

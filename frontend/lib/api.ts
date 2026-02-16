@@ -22,6 +22,7 @@ export interface PoolSummary {
   title?: string;
   description?: string;
   contributedAmount?: string;
+  attachments?: PoolAttachment[];
 }
 
 export interface ProfilePayload {
@@ -55,6 +56,15 @@ export interface PoolContributor {
   txHash?: string | null;
 }
 
+export interface PoolAttachment {
+  id?: string;
+  publicUrl: string;
+  mimeType: string;
+  sizeBytes: number;
+  path?: string;
+  createdAt?: string;
+}
+
 export async function fetchPools() {
   const res = await fetch(`${backend}/pools`);
   if (!res.ok) throw new Error("failed to load pools");
@@ -68,6 +78,19 @@ export async function createPool(payload: PoolPayload) {
     body: JSON.stringify(payload)
   });
   if (!res.ok) throw new Error("failed to create pool");
+  return res.json();
+}
+
+export async function uploadPoolFiles(
+  poolId: string,
+  files: { name: string; type: string; size: number; data: string }[]
+) {
+  const res = await fetch(`${backend}/pools/${poolId}/files`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ files })
+  });
+  if (!res.ok) throw new Error("failed to upload attachments");
   return res.json();
 }
 
