@@ -76,6 +76,9 @@ export default function HomePage() {
   const [marketsLoading, setMarketsLoading] = useState<boolean>(false);
   const [hotTag, setHotTag] = useState<string>("all");
   const [whistleSearch, setWhistleSearch] = useState<string>("");
+  const whistleWorkerRef = useRef<Worker | null>(null);
+  const whistleTokenRef = useRef(0);
+  const [searchLimit, setSearchLimit] = useState<number>(60);
   const [expandedMarketTips, setExpandedMarketTips] = useState<Record<string, boolean>>({});
   const whistleRef = useRef<HTMLDivElement | null>(null);
   const whistlePauseRef = useRef<number | null>(null);
@@ -225,9 +228,8 @@ export default function HomePage() {
   }, [pools]);
 
   const searching = whistleSearch.trim().length > 0;
-  const baseWhistleMarkets = searching
-    ? allMarkets
-    : hotTag === "all"
+  const baseWhistleMarkets =
+    hotTag === "all"
       ? hotMarkets
       : hotTag === "New"
         ? allMarkets.filter((market) => {
@@ -238,12 +240,64 @@ export default function HomePage() {
           return createdAt >= cutoff;
         })
         : allMarkets.filter((market) => (market.tags || []).includes(hotTag));
-  const filteredWhistleMarkets = baseWhistleMarkets.filter((market) => {
-    if (!searching) return true;
-    const q = `${market.question || ""} ${market.slug || ""}`.toLowerCase();
-    return q.includes(whistleSearch.toLowerCase());
-  });
-  const visibleWhistleMarkets = searching ? filteredWhistleMarkets : filteredWhistleMarkets.slice(0, 20);
+  const [filteredWhistleMarkets, setFilteredWhistleMarkets] = useState<typeof allMarkets>([]);
+  const baseWhistleIds = useMemo(() => baseWhistleMarkets.map((market) => String(market.id)), [baseWhistleMarkets]);
+  const allMarketIds = useMemo(() => allMarkets.map((market) => String(market.id)), [allMarkets]);
+  const marketById = useMemo(() => {
+    const map = new Map<string, (typeof allMarkets)[number]>();
+    for (const market of allMarkets) {
+      map.set(String(market.id), market);
+    }
+    return map;
+  }, [allMarkets]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const worker = new Worker("/whistle-search-worker.js");
+    whistleWorkerRef.current = worker;
+    worker.postMessage({ type: "init", markets: allMarkets });
+    const onMessage = (event: MessageEvent) => {
+      const data = event.data as { type: string; ids?: string[]; token?: number };
+      if (data.type === "result" && data.ids) {
+        if (data.token !== whistleTokenRef.current) return;
+        const next = data.ids
+          .map((id) => marketById.get(String(id)))
+          .filter((market): market is (typeof allMarkets)[number] => Boolean(market));
+        setFilteredWhistleMarkets(next);
+      }
+    };
+    worker.addEventListener("message", onMessage);
+    return () => {
+      worker.removeEventListener("message", onMessage);
+      worker.terminate();
+    };
+  }, [allMarkets, marketById]);
+
+  useEffect(() => {
+    const worker = whistleWorkerRef.current;
+    if (!worker) return;
+    const token = whistleTokenRef.current + 1;
+    whistleTokenRef.current = token;
+    worker.postMessage({
+      type: "search",
+      query: whistleSearch,
+      baseIds: searching ? allMarketIds : baseWhistleIds,
+      token
+    });
+  }, [whistleSearch, baseWhistleIds, allMarketIds, searching]);
+
+  useEffect(() => {
+    if (!searching) {
+      setFilteredWhistleMarkets(baseWhistleMarkets);
+    }
+  }, [searching, baseWhistleMarkets]);
+  useEffect(() => {
+    setSearchLimit(60);
+  }, [whistleSearch, hotTag]);
+
+  const visibleWhistleMarkets = searching
+    ? filteredWhistleMarkets.slice(0, searchLimit)
+    : (filteredWhistleMarkets.length ? filteredWhistleMarkets : baseWhistleMarkets).slice(0, 20);
 
   useEffect(() => {
     const container = whistleRef.current;
@@ -579,7 +633,7 @@ export default function HomePage() {
                 setInvestigatorExpandedByPool((prev) => ({ ...prev, [pool.id]: !prev[pool.id] }));
               }}
             >
-              {investigatorExpandedByPool[pool.id] && <span className="muted">Investigator:</span>}
+              {investigatorExpandedByPool[pool.id] && <span className="muted">Whistleblower:</span>}
               <Link
                 className="stat-link"
                 href={`/profile/${pool.investigator.toLowerCase()}`}
@@ -613,7 +667,7 @@ export default function HomePage() {
                   className={`pill ${ratingTone}`}
                   style={{ background: ratingBg, borderColor: ratingBorder, color: ratingText }}
                 >
-                  Investigator rating: {investigatorStars.toFixed(2)} / 5
+                  Whistleblower rating: {investigatorStars.toFixed(2)} / 5
                 </span>
               </>
             )}
@@ -864,6 +918,25 @@ export default function HomePage() {
         </div>
       </div>
 
+      <div className={`ticker desktop-only desktop-ticker ${mobileTickerReady ? "ready" : ""}`} aria-label="Live pool updates">
+        <div className="ticker-track">
+          <div className="ticker-group">
+            {mobileTickerItems.map((item, index) => (
+              <span key={`desktop-ticker-${index}`} className="ticker-item">
+                {item}
+              </span>
+            ))}
+          </div>
+          <div className="ticker-group" aria-hidden="true">
+            {mobileTickerItems.map((item, index) => (
+              <span key={`desktop-ticker-ghost-${index}`} className="ticker-item">
+                {item}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {error && <div className="message"> {error} </div>}
 
       <section className="panel desktop-only">
@@ -991,7 +1064,8 @@ export default function HomePage() {
             {!marketsLoading && filteredWhistleMarkets.length === 0 ? (
               <div className="message">No markets found for this {whistleSearch.trim() ? "search" : "filter"}.</div>
             ) : (
-              visibleWhistleMarkets.map((market) => {
+              <>
+                {visibleWhistleMarkets.map((market) => {
                 const tags = Array.isArray(market.tags) ? market.tags : [];
                 const category = tags[0] || "Market";
                 const tips = polymarketTipsById[String(market.id)] || [];
@@ -1041,7 +1115,7 @@ export default function HomePage() {
                     </div>
                     {tipsExpanded && tips.length > 0 && (
                       <div className="tip-list">
-                        <span className="muted">Tips available:</span>
+                        <span className="muted">Whistles available:</span>
                         {tips.map((pool) => (
                           <Link
                             key={pool.id}
@@ -1067,12 +1141,21 @@ export default function HomePage() {
                           window.location.href = tipHref;
                         }}
                       >
-                        Tip on this
+                        Whistle
                       </Link>
                     </div>
                   </div>
                 );
-              })
+              })}
+              {searching && filteredWhistleMarkets.length > searchLimit && (
+                <div className="card" style={{ alignItems: "center", justifyContent: "center" }}>
+                  <p className="muted">Showing {searchLimit} of {filteredWhistleMarkets.length} results</p>
+                  <button className="button" onClick={() => setSearchLimit((prev) => prev + 60)}>
+                    Load more
+                  </button>
+                </div>
+              )}
+            </>
             )}
           </div>
         </div>

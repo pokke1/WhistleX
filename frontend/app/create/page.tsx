@@ -547,7 +547,7 @@ function CreatePoolPageContent() {
         <div className="panel">
           <p className="muted">Pool deployed</p>
           <p className="subtitle">Address: {poolId}</p>
-          <p className="muted">Investigator: {investigator}</p>
+          <p className="muted">Whistleblower: {investigator}</p>
         </div>
       )}
 

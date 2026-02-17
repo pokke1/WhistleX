@@ -208,7 +208,7 @@ export default function PoolDetailPage() {
           </div>
         )}
         <p className="muted">
-          Investigator:
+          Whistleblower:
           {" "}
           <Link
             href={`/profile/${pool.investigator.toLowerCase()}`}

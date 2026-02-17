@@ -97,7 +97,7 @@ export default function ProfileContent({
     <main className="app-shell profile-shell">
       <header className="top-bar">
         <div>
-          <h1 className="title">{isOwnProfile ? "Your profile" : "Vendor profile"}</h1>
+          <h1 className="title">{isOwnProfile ? "Your profile" : "Whistleblower profile"}</h1>
           <p className="subtitle">Track created pools, contributions, and marketplace reputation.</p>
         </div>
         <div className="pill">{shortAddress(address)}</div>
@@ -110,7 +110,7 @@ export default function ProfileContent({
         <>
           <section className="panel">
             <div className="section-header">
-              <h2 className="section-title">Vendor rating</h2>
+              <h2 className="section-title">Whistleblower rating</h2>
               <span className="pill">{averageStars.toFixed(2)} / 5 stars</span>
             </div>
             <p className="muted" style={{ marginTop: 6 }}>

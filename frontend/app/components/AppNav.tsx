@@ -27,6 +27,7 @@ export default function AppNav() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [theme, setTheme] = useState<"blue" | "gold">("blue");
   const { items } = useTicker();
   const tickerItems = items.length ? items : ["Live updates will appear as pools list and unlock."];
   const navLeftRef = useRef<HTMLDivElement | null>(null);
@@ -35,7 +36,28 @@ export default function AppNav() {
 
   useEffect(() => {
     setMounted(true);
+    if (typeof window !== "undefined") {
+      const stored = window.localStorage.getItem("whistlex:theme");
+      if (stored === "gold") {
+        setTheme("gold");
+        document.documentElement.setAttribute("data-theme", "gold");
+      } else {
+        document.documentElement.removeAttribute("data-theme");
+      }
+    }
   }, []);
+
+  const toggleTheme = () => {
+    const next = theme === "gold" ? "blue" : "gold";
+    setTheme(next);
+    if (next === "gold") {
+      document.documentElement.setAttribute("data-theme", "gold");
+      window.localStorage.setItem("whistlex:theme", "gold");
+    } else {
+      document.documentElement.removeAttribute("data-theme");
+      window.localStorage.setItem("whistlex:theme", "blue");
+    }
+  };
 
   const navLinks = useMemo(
     () => [
@@ -84,6 +106,7 @@ export default function AppNav() {
               window.location.href = "/";
             }}
           >
+            <img className="nav-logo" src="/whistlex-logo.svg" alt="WhistleX logo" />
             WhistleX
           </Link>
           <nav className="nav-links" style={{ position: "relative", zIndex: 10000, pointerEvents: "auto" }}>
@@ -106,31 +129,6 @@ export default function AppNav() {
             })}
           </nav>
         </div>
-        <div
-          className="ticker nav-ticker"
-          aria-label="Live pool updates"
-          style={{
-            "--nav-left-width": `${navWidths.left}px`,
-            "--nav-right-width": `${navWidths.right}px`
-          } as React.CSSProperties}
-        >
-          <div className="ticker-track">
-            <div className="ticker-group">
-              {tickerItems.map((item, index) => (
-                <span key={`nav-ticker-${index}`} className="ticker-item">
-                  {item}
-                </span>
-              ))}
-            </div>
-            <div className="ticker-group" aria-hidden="true">
-              {tickerItems.map((item, index) => (
-                <span key={`nav-ticker-ghost-${index}`} className="ticker-item">
-                  {item}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
         <button
           className="nav-toggle"
           type="button"
@@ -141,16 +139,26 @@ export default function AppNav() {
           <span />
           <span />
         </button>
-        <button
-          className="wallet-button"
-          ref={navRightRef}
-          onClick={() => {
-          refreshProviders();
-          setIsModalOpen(true);
-        }}
-        >
-          {walletAddress ? shortAddress(walletAddress) : "Connect wallet"}
-        </button>
+        <div className="nav-right" ref={navRightRef as any}>
+          <button
+            className={`theme-switch desktop-only ${theme === "gold" ? "active" : ""}`}
+            onClick={toggleTheme}
+            aria-label="Toggle theme"
+            title={`Switch to ${theme === "gold" ? "blue" : "gold"} theme`}
+          >
+            <span className="theme-switch-track" />
+            <span className="theme-switch-thumb" />
+          </button>
+          <button
+            className="wallet-button"
+            onClick={() => {
+            refreshProviders();
+            setIsModalOpen(true);
+          }}
+          >
+            {walletAddress ? shortAddress(walletAddress) : "Connect wallet"}
+          </button>
+        </div>
       </header>
 
       {mounted && isMenuOpen
@@ -181,6 +189,9 @@ export default function AppNav() {
                 })}
               </div>
               <div className="nav-drawer-footer" style={{ flexDirection: "column", gap: 10 }}>
+                <button className="button" onClick={toggleTheme}>
+                  Theme: {theme === "gold" ? "Gold" : "Blue"}
+                </button>
                 {walletAddress ? (
                   <>
                     <div className="pill" style={{ width: "100%", textAlign: "center" }}>
