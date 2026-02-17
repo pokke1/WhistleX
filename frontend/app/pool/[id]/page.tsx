@@ -28,6 +28,10 @@ function formatAmount(value: string) {
   }
 }
 
+function shortAddress(address: string) {
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
 interface Pool {
   id: string;
   investigator: string;
@@ -190,6 +194,19 @@ export default function PoolDetailPage() {
             ))}
           </div>
         )}
+        {onchainState && (
+          <div className="pool-progress mobile-only" style={{ marginTop: 8 }}>
+            <div className="progress-track">
+              <div className="progress-fill" style={{ width: `${progressPercent}%` }} />
+              <div className="progress-marker" style={{ left: `${minContributionPercent}%` }} />
+            </div>
+            <div className="progress-meta">
+              <span className="stat">Raised: {formatAmount(onchainState.totalContributions)} {CURRENCY_SYMBOL}</span>
+              <span className="stat">Threshold: {formatAmount(onchainState.threshold)} {CURRENCY_SYMBOL}</span>
+              <span className="stat">Decrypt floor: {formatAmount(onchainState.minContributionForDecrypt)} {CURRENCY_SYMBOL}</span>
+            </div>
+          </div>
+        )}
         <p className="muted">
           Investigator:
           {" "}
@@ -206,7 +223,7 @@ export default function PoolDetailPage() {
         <p className="muted">Threshold: {formatAmount(pool.threshold)} {CURRENCY_SYMBOL}</p>
         <p className="muted">Contribution to decrypt: {formatAmount(pool.minContributionForDecrypt)} {CURRENCY_SYMBOL}</p>
         {onchainState && (
-          <div className="pool-progress">
+          <div className="pool-progress desktop-only">
             <div className="progress-track">
               <div className="progress-fill" style={{ width: `${progressPercent}%` }} />
               <div className="progress-marker" style={{ left: `${minContributionPercent}%` }} />
@@ -270,9 +287,9 @@ export default function PoolDetailPage() {
           <p className="muted">No contributions indexed yet.</p>
         )}
         {contributors.length > 0 && (
-          <div className="list-grid">
+          <div className="list-grid contributors-list">
             {contributors.map((contributor) => (
-              <div key={contributor.address} className="list-card">
+              <div key={contributor.address} className="list-card contributor-card">
                 <div>
                   <p className="muted">Contributor</p>
                   <h3>
@@ -283,7 +300,7 @@ export default function PoolDetailPage() {
                         window.location.href = `/profile/${contributor.address}`;
                       }}
                     >
-                      {contributor.address}
+                      {shortAddress(contributor.address)}
                     </Link>
                   </h3>
                   {contributor.txHash && (

@@ -32,6 +32,8 @@ function CreatePoolPageContent() {
   const [messageKit, setMessageKit] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [attachmentStatus, setAttachmentStatus] = useState<string | null>(null);
+  const [mobileStep, setMobileStep] = useState<number>(0);
+  const mobileSteps = ["Encrypt intel", "Pool details", "Deadline", "Funding rules", "Review"];
   const thresholdValue = Number(threshold);
   const minContributionValue = Number(minContribution);
   const progressPercent =
@@ -185,17 +187,7 @@ function CreatePoolPageContent() {
 
   return (
     <main className="app-shell space-y-5">
-      <header className="top-bar">
-        <div>
-          <h1 className="title">Create a secret intel pool</h1>
-          <p className="subtitle">
-            Encrypt your intel locally in your browser, set funding rules, and publish a pool. Only eligible contributors can decrypt once unlocked.
-          </p>
-        </div>
-        <div className="pill">Investigator</div>
-      </header>
-
-      <div className="panel">
+      <div className="panel desktop-only">
         <SymmetricEncryptor
           onCiphertextReady={(hex) => {
             setCiphertext(hex);
@@ -205,7 +197,7 @@ function CreatePoolPageContent() {
         />
       </div>
 
-      <form onSubmit={handleSubmit} className="panel space-y-4">
+      <form onSubmit={handleSubmit} className="panel space-y-4 desktop-only">
         <div className="section-header">
           <h2 className="section-title">Pool details</h2>
           <span className="pill">USDC · Polygon Amoy</span>
@@ -359,6 +351,195 @@ function CreatePoolPageContent() {
             Create pool and encrypt
           </button>
           {status && <span className="muted">{status}</span>}
+        </div>
+      </form>
+
+      <form onSubmit={handleSubmit} className="panel mobile-only space-y-4">
+        <div className="section-header">
+          <h2 className="section-title">Create a secret intel pool</h2>
+          <span className="pill">Step {mobileStep + 1} / {mobileSteps.length}</span>
+        </div>
+        <div className="create-stepper">
+          <div className="create-stepper-bar" style={{ width: `${((mobileStep + 1) / mobileSteps.length) * 100}%` }} />
+          <div className="create-stepper-label">{mobileSteps[mobileStep]}</div>
+        </div>
+
+        {mobileStep === 0 && (
+          <div className="space-y-3">
+            <h3 className="section-title">Generate your key & encrypt intel</h3>
+            <SymmetricEncryptor
+              onCiphertextReady={(hex) => {
+                setCiphertext(hex);
+                setStatus("Ciphertext prepared locally. Continue with pool creation.");
+              }}
+              onKeyReady={(keyHex) => setIntelKey(keyHex)}
+            />
+          </div>
+        )}
+
+        {mobileStep === 1 && (
+          <div className="space-y-3">
+            <h3 className="section-title">Describe your pool</h3>
+            <label className="block">
+              <span className="muted">Title</span>
+              <div className="input-row" style={{ alignItems: "center" }}>
+                {pmCategory && <span className="pill">{pmCategory}</span>}
+                <input
+                  className="input"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g., Insider report on protocol XYZ"
+                  required
+                  style={{ flex: 1 }}
+                />
+              </div>
+            </label>
+            <label className="block">
+              <span className="muted">Description</span>
+              <textarea
+                className="input"
+                style={{ minHeight: 120, width: "100%" }}
+                value={userDescription}
+                onChange={(e) => setUserDescription(e.target.value)}
+                placeholder="Context, scope, and what contributors can expect once unlocked."
+                required
+              />
+            </label>
+            {(pmCategory || pmMarketId) && (
+              <div className="input-row">
+                {pmCategory && <span className="pill">Category: {pmCategory}</span>}
+                {pmMarketId && <span className="pill">Polymarket ID: {pmMarketId}</span>}
+              </div>
+            )}
+            <div className="panel" style={{ padding: 12 }}>
+              <div className="section-header">
+                <h3 className="section-title">Attachments</h3>
+                <span className="pill">Max 3</span>
+              </div>
+              <div className="input-row" style={{ marginTop: 10 }}>
+                <input
+                  className="input"
+                  type="file"
+                  accept="image/*,application/pdf"
+                  multiple
+                  onChange={handleAttachmentSelect}
+                />
+                <span className="pill">{attachments.length}/3</span>
+              </div>
+              {attachmentStatus && <div className="message" style={{ marginTop: 8 }}>{attachmentStatus}</div>}
+              {attachments.length > 0 && (
+                <div className="attachment-list" style={{ marginTop: 10 }}>
+                  {attachments.map((file, index) => (
+                    <div className="attachment-item" key={`${file.name}-${index}`}>
+                      <span className="pill">{file.type.startsWith("image/") ? "Image" : "PDF"}</span>
+                      <span className="muted">{file.name}</span>
+                      <button type="button" className="button tiny" onClick={() => removeAttachment(index)}>
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {mobileStep === 2 && (
+          <div className="space-y-3">
+            <h3 className="section-title">Set a deadline</h3>
+            <label className="block">
+              <span className="muted">Deadline</span>
+              <input
+                className="input"
+                type="datetime-local"
+                value={deadline}
+                onChange={(e) => setDeadline(e.target.value)}
+                required
+              />
+            </label>
+          </div>
+        )}
+
+        {mobileStep === 3 && (
+          <div className="space-y-3">
+            <h3 className="section-title">Funding rules</h3>
+            <label className="block">
+              <span className="muted">Funding threshold (USDC)</span>
+              <input
+                className="input"
+                value={threshold}
+                onChange={(e) => setThreshold(e.target.value)}
+                type="number"
+                min="0"
+                step="1"
+                required
+              />
+            </label>
+            <label className="block">
+              <span className="muted">Minimum contribution to decrypt (USDC)</span>
+              <input
+                className="input"
+                value={minContribution}
+                onChange={(e) => setMinContribution(e.target.value)}
+                type="number"
+                min="0"
+                step="1"
+                required
+              />
+            </label>
+            <div className="pool-progress" style={{ marginTop: 12 }}>
+              <div className="progress-track">
+                <div className="progress-fill" style={{ width: `${progressPercent}%` }} />
+                <div className="progress-marker" style={{ left: `${minContributionPercent}%` }} />
+              </div>
+              <div className="progress-meta">
+                <span className="stat">Raised: 0 {CURRENCY_SYMBOL}</span>
+                <span className="stat">Threshold: {threshold || "0"} {CURRENCY_SYMBOL}</span>
+                <span className="stat">Decrypt floor: {minContribution || "0"} {CURRENCY_SYMBOL}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {mobileStep === 4 && (
+          <div className="space-y-3">
+            <h3 className="section-title">Review & create</h3>
+            <div className="panel" style={{ padding: 12 }}>
+              <p className="muted">Title</p>
+              <p>{title || "Untitled pool"}</p>
+              <p className="muted" style={{ marginTop: 8 }}>Deadline</p>
+              <p>{deadline || "Not set"}</p>
+              <p className="muted" style={{ marginTop: 8 }}>Threshold</p>
+              <p>{threshold || "0"} {CURRENCY_SYMBOL}</p>
+              <p className="muted" style={{ marginTop: 8 }}>Decrypt floor</p>
+              <p>{minContribution || "0"} {CURRENCY_SYMBOL}</p>
+            </div>
+            <div className="create-submit-row">
+              <button className="button cta" type="submit">
+                Create pool and encrypt
+              </button>
+            </div>
+            {status && <span className="muted">{status}</span>}
+          </div>
+        )}
+
+        <div className="input-row">
+          <button
+            type="button"
+            className="button"
+            disabled={mobileStep === 0}
+            onClick={() => setMobileStep((prev) => Math.max(0, prev - 1))}
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            className="button cta"
+            disabled={mobileStep === mobileSteps.length - 1}
+            onClick={() => setMobileStep((prev) => Math.min(mobileSteps.length - 1, prev + 1))}
+          >
+            Next
+          </button>
         </div>
       </form>
 

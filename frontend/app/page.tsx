@@ -63,8 +63,10 @@ export default function HomePage() {
   const [contributionInputs, setContributionInputs] = useState<Record<string, string>>({});
   const [cipherExpandedByPool, setCipherExpandedByPool] = useState<Record<string, boolean>>({});
   const [investigatorExpandedByPool, setInvestigatorExpandedByPool] = useState<Record<string, boolean>>({});
+  const [statusExpandedByPool, setStatusExpandedByPool] = useState<Record<string, boolean>>({});
   const [poolVisibilityFilter, setPoolVisibilityFilter] = useState<"all" | "open" | "closed">("all");
   const [poolFilterOpen, setPoolFilterOpen] = useState<boolean>(false);
+  const [mobilePoolFilterOpen, setMobilePoolFilterOpen] = useState<boolean>(false);
   const [ratingByInvestigator, setRatingByInvestigator] = useState<Record<string, number>>({});
   const [voteSummaryByPool, setVoteSummaryByPool] = useState<Record<string, { upvotes: number; downvotes: number }>>({});
   const [allMarkets, setAllMarkets] = useState<
@@ -85,7 +87,7 @@ export default function HomePage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewType, setPreviewType] = useState<"image" | "pdf" | null>(null);
   const { walletAddress, connectWallet } = useWallet();
-  const { setItems: setTickerItems } = useTicker();
+  const { items: tickerItemsFromContext, setItems: setTickerItems } = useTicker();
   const unlockedPools = pools.filter((pool) => onchainStateByPool[pool.id]?.unlocked);
   const recentlyListed = pools.slice(-6).reverse();
   const tickerItems = useMemo(() => {
@@ -94,6 +96,10 @@ export default function HomePage() {
       ...unlockedPools.slice(0, 6).map((pool) => `Unlocked: ${pool.title || shortAddress(pool.id)}`)
     ];
   }, [recentlyListed, unlockedPools]);
+  const mobileTickerItems = tickerItemsFromContext.length
+    ? tickerItemsFromContext
+    : ["Live updates will appear as pools list and unlock."];
+  const [mobileTickerReady, setMobileTickerReady] = useState(false);
 
   useEffect(() => {
     const payload = tickerItems.length ? tickerItems : ["Live updates will appear as pools list and unlock."];
@@ -105,6 +111,14 @@ export default function HomePage() {
     });
     return () => setTickerItems([]);
   }, [tickerItems, setTickerItems]);
+
+  useEffect(() => {
+    setMobileTickerReady(false);
+    const id = window.requestAnimationFrame(() => {
+      setMobileTickerReady(true);
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [mobileTickerItems.join("|")]);
 
   useEffect(() => {
     setError(null);
@@ -234,6 +248,9 @@ export default function HomePage() {
   useEffect(() => {
     const container = whistleRef.current;
     if (!container) return;
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches) {
+      return;
+    }
 
     const speed = 50; // px per second
     let last = performance.now();
@@ -275,6 +292,9 @@ export default function HomePage() {
   useEffect(() => {
     const container = whistleRef.current;
     if (!container) return;
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches) {
+      return;
+    }
 
     const EDGE_ZONE = 36;
     const SPEED = 140; // px per second
@@ -486,6 +506,12 @@ export default function HomePage() {
   const closedPools = pools.filter((pool) => isPoolClosed(pool));
   const visibleOpenPools = poolVisibilityFilter === "closed" ? [] : openPools;
   const visibleClosedPools = poolVisibilityFilter === "open" ? [] : closedPools;
+  const mobilePools =
+    poolVisibilityFilter === "open"
+      ? openPools
+      : poolVisibilityFilter === "closed"
+        ? closedPools
+        : pools;
 
   function renderPoolCard(pool: Pool) {
     const intel = intelByPool[pool.id];
@@ -769,7 +795,22 @@ export default function HomePage() {
           )}
         </div>
 
-        {status && <span className="muted">{status}</span>}
+        {status && (
+          <div className="pool-status-wrap">
+            <span className={`muted pool-status ${statusExpandedByPool[pool.id] ? "expanded" : ""}`}>
+              {status}
+            </span>
+            <button
+              className="button tiny pool-status-toggle"
+              type="button"
+              onClick={() =>
+                setStatusExpandedByPool((prev) => ({ ...prev, [pool.id]: !prev[pool.id] }))
+              }
+            >
+              {statusExpandedByPool[pool.id] ? "Hide" : "More"}
+            </button>
+          </div>
+        )}
 
         {intel && (
           <div className="panel">
@@ -804,9 +845,28 @@ export default function HomePage() {
         <div />
       </header>
 
+      <div className={`ticker mobile-only mobile-ticker ${mobileTickerReady ? "ready" : ""}`} aria-label="Live pool updates">
+        <div className="ticker-track">
+          <div className="ticker-group">
+            {mobileTickerItems.map((item, index) => (
+              <span key={`mobile-ticker-${index}`} className="ticker-item">
+                {item}
+              </span>
+            ))}
+          </div>
+          <div className="ticker-group" aria-hidden="true">
+            {mobileTickerItems.map((item, index) => (
+              <span key={`mobile-ticker-ghost-${index}`} className="ticker-item">
+                {item}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {error && <div className="message"> {error} </div>}
 
-      <section className="panel">
+      <section className="panel desktop-only">
         <div className="section-header">
           <div className="section-title-row">
             <h2 className="section-title">Pools Filters</h2>
@@ -850,6 +910,16 @@ export default function HomePage() {
             <h2 className="section-title">Whistle</h2>
             <p className="muted">Do you have intel on these markets? Monetize it now.</p>
           </div>
+          <button
+            type="button"
+            className="button tiny mobile-only"
+            onClick={() => {
+              const el = document.querySelector(".whistle-filters");
+              if (el) el.classList.toggle("open");
+            }}
+          >
+            Filters
+          </button>
           <span className="pill">Polymarket</span>
         </div>
         {marketsLoading && (
@@ -859,7 +929,7 @@ export default function HomePage() {
           </div>
         )}
         {!marketsLoading && marketsStatus && <div className="message">{marketsStatus}</div>}
-        <div className="input-row">
+        <div className="input-row whistle-filters">
           <button className={`button ${hotTag === "all" ? "cta" : ""}`} onClick={() => setHotTag("all")}>
             Hot
           </button>
@@ -1008,8 +1078,61 @@ export default function HomePage() {
         </div>
       </section>
 
+      <section className="panel mobile-only">
+        <div className="section-header">
+          <div>
+            <h2 className="section-title">Pools</h2>
+            <p className="muted">Swipe through pools. Tap to open details.</p>
+          </div>
+          <button
+            type="button"
+            className="button tiny"
+            onClick={() => setMobilePoolFilterOpen((prev) => !prev)}
+          >
+            {mobilePoolFilterOpen ? "Hide filters" : "Show filters"}
+          </button>
+        </div>
+        {mobilePoolFilterOpen && (
+          <div className="input-row" style={{ marginTop: 8 }}>
+            <button
+              className={`button ${poolVisibilityFilter === "all" ? "cta" : ""}`}
+              onClick={() => setPoolVisibilityFilter("all")}
+            >
+              All
+            </button>
+            <button
+              className={`button ${poolVisibilityFilter === "open" ? "cta" : ""}`}
+              onClick={() => setPoolVisibilityFilter("open")}
+            >
+              Open
+            </button>
+            <button
+              className={`button ${poolVisibilityFilter === "closed" ? "cta" : ""}`}
+              onClick={() => setPoolVisibilityFilter("closed")}
+            >
+              Closed
+            </button>
+          </div>
+        )}
+        {poolsLoading && (
+          <div className="message">
+            <span className="loading-dot" />
+            Loading pools...
+          </div>
+        )}
+        {!poolsLoading && (
+          <div className="pool-carousel">
+            {mobilePools.map((pool) => (
+              <div key={pool.id} className="pool-snap">
+                {renderPoolCard(pool)}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
       {poolVisibilityFilter !== "closed" && (
-        <section className="panel">
+        <section className="panel desktop-only">
           <div className="section-header">
             <h2 className="section-title">Open pools</h2>
             <span className="pill">{visibleOpenPools.length} listed</span>
@@ -1028,7 +1151,7 @@ export default function HomePage() {
       )}
 
       {poolVisibilityFilter !== "open" && (
-        <section className="panel">
+        <section className="panel desktop-only">
           <div className="section-header">
             <h2 className="section-title">Closed pools</h2>
             <span className="pill">{visibleClosedPools.length} listed</span>

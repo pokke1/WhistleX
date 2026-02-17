@@ -24,6 +24,7 @@ export default function AppNav() {
     refreshProviders
   } = useWallet();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { items } = useTicker();
@@ -131,6 +132,16 @@ export default function AppNav() {
           </div>
         </div>
         <button
+          className="nav-toggle"
+          type="button"
+          onClick={() => setIsMenuOpen(true)}
+          aria-label="Open navigation menu"
+        >
+          <span />
+          <span />
+          <span />
+        </button>
+        <button
           className="wallet-button"
           ref={navRightRef}
           onClick={() => {
@@ -141,6 +152,74 @@ export default function AppNav() {
           {walletAddress ? shortAddress(walletAddress) : "Connect wallet"}
         </button>
       </header>
+
+      {mounted && isMenuOpen
+        ? createPortal(
+          <div className="nav-drawer-backdrop" onClick={() => setIsMenuOpen(false)}>
+            <div className="nav-drawer" onClick={(event) => event.stopPropagation()}>
+              <div className="nav-drawer-header">
+                <span className="muted">Menu</span>
+                <button className="icon-button" onClick={() => setIsMenuOpen(false)} aria-label="Close menu">
+                  x
+                </button>
+              </div>
+              <div className="nav-drawer-links">
+                {navLinks.map((link) => {
+                  const isActive = pathname === link.href;
+                  return (
+                    <button
+                      key={link.href}
+                      className={`button ${isActive ? "cta" : ""}`}
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        window.location.href = link.href;
+                      }}
+                    >
+                      {link.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="nav-drawer-footer" style={{ flexDirection: "column", gap: 10 }}>
+                {walletAddress ? (
+                  <>
+                    <div className="pill" style={{ width: "100%", textAlign: "center" }}>
+                      Connected: {shortAddress(walletAddress)}
+                    </div>
+                    <button
+                      className="button"
+                      onClick={() => {
+                        disconnectWallet();
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      Disconnect
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="button cta"
+                    disabled={isConnecting}
+                    onClick={async () => {
+                      try {
+                        refreshProviders();
+                        await connectWallet();
+                        setIsMenuOpen(false);
+                      } catch (err: any) {
+                        setError(err?.message || "Failed to connect wallet");
+                      }
+                    }}
+                  >
+                    {isConnecting ? "Connecting..." : "Connect wallet"}
+                  </button>
+                )}
+                {error && <span className="muted" style={{ color: "#ff6f91" }}>{error}</span>}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+        : null}
 
       {mounted && isModalOpen
         ? createPortal(

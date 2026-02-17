@@ -77,6 +77,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (typeof window === "undefined") {
       throw new Error("window is not available");
     }
+    if (!window.isSecureContext) {
+      throw new Error("Wallet connection requires a secure context (HTTPS or localhost).");
+    }
 
     const detected = providers.length ? providers : listInjectedProviders();
     let selection = providerId
@@ -97,10 +100,16 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setActiveProviderId(selection.id);
       setWalletLabel(selection.name);
 
-      const accounts = (await selection.provider.request({
-        method: "eth_requestAccounts"
-      })) as string[];
+      const accounts = (await Promise.race([
+        selection.provider.request({ method: "eth_requestAccounts" }) as Promise<string[]>,
+        new Promise<string[]>((_, reject) =>
+          window.setTimeout(() => reject(new Error("Wallet did not respond. Open this site inside your wallet browser and try again.")), 12000)
+        )
+      ])) as string[];
       const account = accounts?.[0] || null;
+      if (!account) {
+        throw new Error("No account returned. Make sure you are using the wallet’s in-app browser and approve the connection.");
+      }
       setWalletAddress(account);
       return account;
     } finally {

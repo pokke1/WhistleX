@@ -738,6 +738,27 @@ input[type="number"] {
   pointer-events: auto;
 }
 
+.nav-toggle {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(77, 163, 255, 0.25);
+  background: rgba(12, 18, 28, 0.7);
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.nav-toggle span {
+  width: 18px;
+  height: 2px;
+  background: var(--text);
+  border-radius: 999px;
+}
+
 .nav-link {
   padding: 6px 10px;
   border-radius: 999px;
@@ -785,6 +806,546 @@ input[type="number"] {
   z-index: 9999;
 }
 
+.nav-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 7, 10, 0.75);
+  z-index: 9998;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  padding: 0;
+}
+
+.nav-drawer {
+  width: min(320px, 80vw);
+  height: 100%;
+  background: rgba(13, 16, 22, 0.97);
+  border: 1px solid rgba(77, 163, 255, 0.2);
+  border-radius: 18px 0 0 18px;
+  padding: 18px 16px;
+  box-shadow: var(--card-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transform: translateX(100%);
+  animation: nav-slide-in 0.25s ease forwards;
+}
+
+@keyframes nav-slide-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0%);
+  }
+}
+
+.nav-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nav-drawer-links {
+  display: grid;
+  gap: 10px;
+}
+
+.nav-drawer-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 900px) {
+  .app-nav {
+    padding: 0 14px;
+    align-items: center;
+    height: 52px;
+    background: rgba(12, 16, 24, 0.72);
+    border-bottom: 1px solid rgba(77, 163, 255, 0.18);
+    backdrop-filter: blur(16px) saturate(140%);
+    position: fixed;
+  }
+
+  .app-shell {
+    padding-top: 35px;
+  }
+
+  .profile-shell {
+    padding-top: 85px;
+  }
+
+  .nav-links {
+    display: none;
+  }
+
+  .nav-left {
+    align-items: center;
+    height: 52px;
+  }
+
+  .nav-toggle {
+    display: flex;
+    margin-left: auto;
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: rgba(12, 18, 28, 0.6);
+    justify-content: center;
+    border-radius: 12px;
+    align-items: center;
+    margin-top: 0;
+    align-self: center;
+    position: absolute;
+    right: 12px;
+    top: 8px;
+  }
+
+  .nav-toggle span {
+    width: 20px;
+    height: 3px;
+    background: rgba(230, 233, 240, 0.9);
+  }
+
+  .wallet-button {
+    display: none;
+  }
+
+  .nav-brand {
+    font-size: 22px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    height: 52px;
+    font-family: "Space Grotesk", "IBM Plex Sans", "Segoe UI", sans-serif;
+    margin: 0;
+    padding: 0;
+  }
+
+  .nav-drawer-backdrop {
+    background: rgba(7, 10, 16, 0.75);
+    backdrop-filter: blur(10px);
+  }
+
+  .nav-drawer {
+    width: min(82vw, 340px);
+    border-radius: 18px 0 0 18px;
+    background: linear-gradient(160deg, rgba(20, 28, 40, 0.98), rgba(13, 18, 28, 0.96));
+    border-left: 1px solid rgba(77, 163, 255, 0.2);
+    box-shadow: -12px 0 30px rgba(0, 0, 0, 0.4);
+  }
+
+  .nav-drawer-header {
+    padding-bottom: 6px;
+  }
+
+  .nav-drawer-links .button {
+    justify-content: flex-start;
+  }
+
+  .desktop-only {
+    display: none !important;
+  }
+
+  .mobile-only {
+    display: block !important;
+  }
+
+  .pool-carousel {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(260px, 85vw);
+    gap: 14px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    scroll-snap-type: x mandatory;
+    scroll-padding-left: 12px;
+  }
+
+  .pool-snap {
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
+    display: flex;
+    justify-content: center;
+  }
+
+  .pool-snap .pool-card {
+    width: 100%;
+  }
+
+  .pool-card {
+    width: 260px;
+    padding: 12px;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .pool-card .progress-meta {
+    margin-top: 4px;
+  }
+
+  .pool-card .stat-row {
+    gap: 6px;
+    margin-top: 4px !important;
+  }
+
+  .pool-card .input-row {
+    min-height: 0;
+  }
+
+  .pool-card-body h3 {
+    font-size: 14px;
+    line-height: 1.2;
+  }
+
+  .pool-card-body .muted {
+    font-size: 11px;
+  }
+
+  .progress-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .progress-meta .stat {
+    font-size: 11px;
+  }
+
+  .pool-card .policy-line,
+  .pool-card .pool-ciphertext,
+  .pool-card .panel {
+    display: none;
+  }
+
+  .pool-card .input-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    margin-top: auto;
+    align-items: stretch;
+    justify-items: stretch;
+  }
+
+  .pool-card .input-row .input {
+    grid-column: 1 / -1;
+  }
+
+  .pool-card .input-row .button.cta {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .pool-card-header .pill,
+  .pool-card-header .tag,
+  .pool-card-header .investigator-toggle {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+
+  .pool-status-wrap {
+    display: grid;
+    gap: 6px;
+  }
+
+  .pool-status {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .pool-status.expanded {
+    -webkit-line-clamp: unset;
+  }
+
+  .pool-status-toggle {
+    width: fit-content;
+  }
+
+  .decrypt-fold-wrap,
+  .decrypt-fold {
+    display: block;
+  }
+
+  .whistle-filters {
+    display: none;
+  }
+
+  .whistle-filters.open {
+    display: flex;
+  }
+
+  .whistle-track {
+    grid-auto-columns: minmax(270px, 85vw) !important;
+  }
+
+  .whistle-track .card {
+    padding: 12px;
+    border-radius: 14px;
+    gap: 8px;
+    width: 100% !important;
+  }
+
+  .whistle-track .card h3 {
+    font-size: 13px;
+    line-height: 1.2;
+  }
+
+  .whistle-track .card .stat-row {
+    gap: 6px;
+  }
+
+  .whistle-track .card img {
+    width: 34px !important;
+    height: 34px !important;
+    border-radius: 8px !important;
+  }
+
+  .top-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .top-bar .title {
+    margin-bottom: 0;
+  }
+
+  .top-bar .subtitle {
+    font-size: 13px;
+  }
+
+  .top-bar .title {
+    display: none;
+  }
+
+  .top-bar .pill {
+    align-self: flex-start;
+  }
+
+  .dashboard-grid {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(180px, 70vw);
+    overflow-x: auto;
+    padding-bottom: 6px;
+    scroll-snap-type: x mandatory;
+    scroll-padding-left: 8px;
+  }
+
+  .dashboard-grid {
+    display: none;
+  }
+
+  .polymarket-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    padding: 12px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--panel-strong);
+    margin-bottom: 12px;
+  }
+
+  .polymarket-summary-item .muted {
+    font-size: 11px;
+  }
+
+  .polymarket-summary-item .metric {
+    font-size: 16px;
+    margin: 4px 0 0;
+  }
+
+  .dashboard-card {
+    scroll-snap-align: start;
+  }
+
+  .list-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .list-card h3 {
+    font-size: 14px;
+    margin: 0;
+  }
+
+  .list-card .muted {
+    font-size: 11px;
+  }
+
+  .list-card .button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .list-scroll {
+    max-height: 280px;
+    padding-right: 0;
+  }
+
+  .trade-card {
+    padding-left: 18px;
+  }
+
+  .trade-dot {
+    left: 8px;
+    top: 10px;
+  }
+
+  .stat-row {
+    flex-wrap: wrap;
+  }
+
+  .trade-card {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .trade-card h3 {
+    font-size: 14px;
+    margin: 4px 0 0;
+  }
+
+  .trade-card .stat-row {
+    gap: 6px;
+    margin-top: 6px !important;
+  }
+
+  .trade-card .pill {
+    font-size: 10px;
+    padding: 4px 8px;
+  }
+
+  .trade-card .muted {
+    font-size: 10px;
+  }
+
+  .trade-card .stat {
+    font-size: 10px;
+  }
+
+  .trade-card {
+    padding: 10px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 12px;
+    align-items: start;
+  }
+
+  .trade-card > div:last-child {
+    justify-self: end;
+    text-align: right;
+  }
+
+  .trade-card > div {
+    min-width: 0;
+  }
+
+  .contributors-list {
+    max-height: 280px;
+    overflow-y: auto;
+    padding-right: 0;
+    scrollbar-width: thin;
+  }
+
+  .contributor-card {
+    padding: 10px;
+  }
+
+  .contributor-card h3 {
+    font-size: 13px;
+    margin: 0;
+  }
+
+  .contributor-card .muted {
+    font-size: 11px;
+  }
+
+  .contributor-card .stat-row {
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .mobile-ticker {
+    margin-top: 4px;
+    margin-bottom: 14px;
+    border-radius: 0;
+    margin-left: -18px;
+    margin-right: -18px;
+    padding: 6px 0;
+    opacity: 0;
+    transition: opacity 200ms ease;
+  }
+
+  .mobile-ticker .ticker-track {
+    animation: ticker-scroll 20s linear infinite;
+    will-change: transform;
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    animation-play-state: paused;
+  }
+
+  .mobile-ticker.ready {
+    opacity: 1;
+  }
+
+  .mobile-ticker.ready .ticker-track {
+    animation-play-state: running;
+  }
+
+  .create-stepper {
+    position: relative;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(15, 20, 24, 0.6);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .create-stepper-bar {
+    position: absolute;
+    inset: 0;
+    width: 0%;
+    background: linear-gradient(90deg, rgba(90, 212, 172, 0.25), rgba(90, 212, 172, 0.55));
+    transition: width 240ms ease;
+    pointer-events: none;
+  }
+
+  .create-stepper-label {
+    position: relative;
+    z-index: 1;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text);
+  }
+
+  .create-submit-row {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 6px;
+  }
+
+  .create-submit-row .button.cta {
+    min-width: 220px;
+    padding: 14px 20px;
+    font-size: 15px;
+  }
+}
+
+@media (min-width: 901px) {
+  .mobile-only {
+    display: none !important;
+  }
+}
 .wallet-modal {
   width: min(420px, 100%);
   background: var(--panel);

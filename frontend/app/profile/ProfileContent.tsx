@@ -94,7 +94,7 @@ export default function ProfileContent({
   }, [polymarket]);
 
   return (
-    <main className="app-shell">
+    <main className="app-shell profile-shell">
       <header className="top-bar">
         <div>
           <h1 className="title">{isOwnProfile ? "Your profile" : "Vendor profile"}</h1>
@@ -164,7 +164,24 @@ export default function ProfileContent({
             {!polymarket && !polymarketStatus && <div className="message">Loading Polymarket history...</div>}
             {polymarket && (
               <>
-                <div className="dashboard-grid">
+                <div className="mobile-only polymarket-summary">
+                  <div className="polymarket-summary-item">
+                    <p className="muted">Trades</p>
+                    <p className="metric">{polymarket.totalTrades}</p>
+                  </div>
+                  <div className="polymarket-summary-item">
+                    <p className="muted">Volume</p>
+                    <p className="metric">{formatUsd.format(polymarket.totalVolumeUsdc)}</p>
+                  </div>
+                  <div className="polymarket-summary-item">
+                    <p className="muted">PnL</p>
+                    <p className={`metric ${polymarket.totalPnl == null ? "" : polymarket.totalPnl >= 0 ? "pnl-positive" : "pnl-negative"}`}>
+                      {polymarket.totalPnl == null ? "N/A" : formatSignedUsd.format(polymarket.totalPnl)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="dashboard-grid desktop-only">
                   <div className="dashboard-card">
                     <p className="muted">Trades tracked</p>
                     <h3 className="metric">{polymarket.totalTrades}</h3>
