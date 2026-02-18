@@ -14,6 +14,7 @@ import {
 import { describePolicy } from "../../../lib/tacoClient";
 import { fetchPoolState, type PoolOnchainState } from "../../../lib/onchain";
 import { getAddressExplorerUrl, getTxExplorerUrl } from "../../../lib/explorer";
+import { parsePolymarketReference } from "../../../lib/polymarketRef";
 import { utils } from "ethers";
 import { useWallet } from "../../components/WalletProvider";
 
@@ -161,13 +162,21 @@ export default function PoolDetailPage() {
 
   if (error) return <main className="app-shell">{error}</main>;
   if (!pool) return <main className="app-shell">Loading...</main>;
+  const polymarketRef = parsePolymarketReference(pool.description);
 
   return (
     <main className="app-shell space-y-4">
       <div className="panel space-y-2">
         <h1 className="title">{pool.title || `Pool ${pool.id}`}</h1>
         {!pool.title && <p className="muted">{pool.id}</p>}
-        {pool.description && <p className="muted">{pool.description}</p>}
+        {polymarketRef.cleanDescription && <p className="muted">{polymarketRef.cleanDescription}</p>}
+        {polymarketRef.marketUrl && (
+          <p className="muted">
+            <a href={polymarketRef.marketUrl} target="_blank" rel="noreferrer">
+              View related Polymarket bet
+            </a>
+          </p>
+        )}
         {pool.attachments && pool.attachments.length > 0 && (
           <div className="pool-attachments">
             {pool.attachments.slice(0, 3).map((file) => (

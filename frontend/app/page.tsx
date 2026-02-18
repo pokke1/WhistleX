@@ -8,6 +8,7 @@ import { decryptWithTaco } from "../lib/taco";
 import { describePolicy } from "../lib/tacoClient";
 import { utils } from "ethers";
 import { decryptIntelWithKey, parseSymmetricKey } from "../lib/symmetricCrypto";
+import { parsePolymarketReference } from "../lib/polymarketRef";
 import { useWallet } from "./components/WalletProvider";
 import { useTicker } from "./components/TickerProvider";
 
@@ -626,6 +627,7 @@ export default function HomePage() {
       thresholdValue > 0 && Number.isFinite(minContributionValue)
         ? Math.min(100, Math.max(0, (minContributionValue / thresholdValue) * 100))
         : 0;
+    const polymarketRef = parsePolymarketReference(pool.description);
 
     return (
       <article key={pool.id} className="card pool-card">
@@ -703,7 +705,14 @@ export default function HomePage() {
         >
           <p className="muted">Pool</p>
           <h3>{pool.title || pool.id}</h3>
-          {pool.description && <p className="muted" style={{ marginTop: 4 }}>{pool.description}</p>}
+          {polymarketRef.cleanDescription && <p className="muted" style={{ marginTop: 4 }}>{polymarketRef.cleanDescription}</p>}
+          {polymarketRef.marketUrl && (
+            <p className="muted" style={{ marginTop: 4 }}>
+              <a href={polymarketRef.marketUrl} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>
+                View related Polymarket bet
+              </a>
+            </p>
+          )}
           {!pool.title && <p className="muted" style={{ fontSize: 12 }}>{pool.id}</p>}
           {pool.attachments && pool.attachments.length > 0 && (
             <div
