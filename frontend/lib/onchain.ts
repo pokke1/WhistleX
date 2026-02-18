@@ -41,7 +41,6 @@ const AMOY_CHAIN_ID_DEC = 80002;
 const AMOY_CHAIN_ID_HEX = '0x13882'; 
 
 const DEFAULT_AMOY_RPC_URL = process.env.NEXT_PUBLIC_AMOY_RPC_URL || "https://polygon-amoy.drpc.org";
-const PUBLIC_AMOY_RPC_URL = "https://rpc-amoy.polygon.technology";
 const DEFAULT_USDC_DECIMALS = Number(process.env.NEXT_PUBLIC_USDC_DECIMALS || "6");
 
 export interface PoolOnchainState {
@@ -154,8 +153,7 @@ export async function createPoolOnchain(params: CreatePoolOnchainParams) {
 }
 
 export async function fetchPoolState(poolAddress: string, userAddress?: string): Promise<PoolOnchainState> {
-  // Use public RPC for read-only state to avoid paid/custom RPC usage.
-  const provider = new providers.JsonRpcProvider(PUBLIC_AMOY_RPC_URL);
+  const provider = new providers.JsonRpcProvider(DEFAULT_AMOY_RPC_URL);
   const contract = new Contract(poolAddress, poolAbi, provider);
 
   const [currency, currencyDecimals, totalContributions, threshold, minContributionForDecrypt, deadline, unlocked] =
