@@ -56,6 +56,14 @@ export interface PoolContributor {
   txHash?: string | null;
 }
 
+export interface PoolComment {
+  id?: string;
+  poolid: string;
+  author: string;
+  message: string;
+  created_at?: string;
+}
+
 export interface PoolAttachment {
   id?: string;
   publicUrl: string;
@@ -147,5 +155,30 @@ export async function submitPoolVote(poolId: string, voterAddress: string, vote:
 export async function fetchPoolContributors(poolId: string): Promise<{ poolId: string; contributors: PoolContributor[] }> {
   const res = await fetch(`${backend}/pools/${poolId}/contributors`);
   if (!res.ok) throw new Error("failed to fetch contributors");
+  return res.json();
+}
+
+export async function fetchPoolCommentCounts(poolIds: string[]): Promise<Record<string, number>> {
+  if (poolIds.length === 0) return {};
+  const url = new URL(`${backend}/pools/comments/counts`);
+  url.searchParams.set("ids", poolIds.join(","));
+  const res = await fetch(url.toString());
+  if (!res.ok) throw new Error("failed to fetch comment counts");
+  return res.json();
+}
+
+export async function fetchPoolComments(poolId: string): Promise<{ poolId: string; comments: PoolComment[] }> {
+  const res = await fetch(`${backend}/pools/${poolId}/comments`);
+  if (!res.ok) throw new Error("failed to fetch comments");
+  return res.json();
+}
+
+export async function postPoolComment(poolId: string, author: string, message: string) {
+  const res = await fetch(`${backend}/pools/${poolId}/comments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ author, message })
+  });
+  if (!res.ok) throw new Error("failed to post comment");
   return res.json();
 }

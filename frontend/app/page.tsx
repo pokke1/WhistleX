@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { fetchIntel, fetchPoolVotes, fetchPools, fetchProfile } from "../lib/api";
+import { fetchIntel, fetchPoolCommentCounts, fetchPoolVotes, fetchPools, fetchProfile } from "../lib/api";
 import { claimPoolFunds, claimRefund, contributeToPool, fetchPoolState, PoolOnchainState } from "../lib/onchain";
 import { decryptWithTaco } from "../lib/taco";
 import { describePolicy } from "../lib/tacoClient";
@@ -71,6 +71,7 @@ export default function HomePage() {
   const [mobilePoolFilterOpen, setMobilePoolFilterOpen] = useState<boolean>(false);
   const [ratingByInvestigator, setRatingByInvestigator] = useState<Record<string, number>>({});
   const [voteSummaryByPool, setVoteSummaryByPool] = useState<Record<string, { upvotes: number; downvotes: number }>>({});
+  const [commentCountsByPool, setCommentCountsByPool] = useState<Record<string, number>>({});
   const [allMarkets, setAllMarkets] = useState<
     { id: string; slug: string; question: string; endDate: string; createdAt: string | null; volume24hr: number; image: string | null; tags: string[] }[]
   >([]);
@@ -134,11 +135,28 @@ export default function HomePage() {
           const policy = pool?.policyId;
           return Boolean(policy && String(policy).trim().length > 0);
         });
-        setPools(filtered);
+        const sorted = [...filtered].sort((a: any, b: any) => {
+          const aDeadline = Number.parseInt(String(a?.deadline ?? ""), 10);
+          const bDeadline = Number.parseInt(String(b?.deadline ?? ""), 10);
+          const aValue = Number.isFinite(aDeadline) ? aDeadline : Number.POSITIVE_INFINITY;
+          const bValue = Number.isFinite(bDeadline) ? bDeadline : Number.POSITIVE_INFINITY;
+          return aValue - bValue;
+        });
+        setPools(sorted);
       })
       .catch((err) => setError(err.message))
       .finally(() => setPoolsLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (pools.length === 0) {
+      setCommentCountsByPool({});
+      return;
+    }
+    fetchPoolCommentCounts(pools.map((pool) => pool.id))
+      .then(setCommentCountsByPool)
+      .catch(() => setCommentCountsByPool({}));
+  }, [pools]);
 
   useEffect(() => {
     pools.forEach((pool) => refreshPoolState(pool.id));
@@ -601,6 +619,7 @@ export default function HomePage() {
     const investigatorStars = ratingByInvestigator[pool.investigator.toLowerCase()] ?? 0;
     const statusLabel = thresholdMet ? "Unlocked" : isClosed ? "Expired" : "Locked";
     const voteSummary = voteSummaryByPool[pool.id] || { upvotes: 0, downvotes: 0 };
+    const commentCount = commentCountsByPool[pool.id] || 0;
     const voteDelta = voteSummary.upvotes - voteSummary.downvotes;
     const voteTone = voteDelta > 0 ? "pill-positive" : voteDelta < 0 ? "pill-negative" : "pill-neutral";
     const ratingTone = investigatorStars > 0 ? "pill-positive" : investigatorStars < 0 ? "pill-negative" : "pill-neutral";
@@ -678,6 +697,7 @@ export default function HomePage() {
                 >
                   Whistleblower rating: {investigatorStars.toFixed(2)} / 5
                 </span>
+                <span className="pill mobile-only">Comments: {commentCount}</span>
               </>
             )}
             {isClosed && (
@@ -686,6 +706,7 @@ export default function HomePage() {
                 <span className={`pill vote-pill ${voteTone}`}>
                   ^ {voteSummary.upvotes} / v {voteSummary.downvotes}
                 </span>
+                <span className="pill mobile-only">Comments: {commentCount}</span>
               </>
             )}
           </div>
@@ -744,6 +765,9 @@ export default function HomePage() {
               ))}
             </div>
           )}
+          <div className="pool-card-footer desktop-only">
+            <span className="muted">Comments: {commentCount}</span>
+          </div>
 
           <div className="pool-progress">
             <div className="progress-track">
@@ -1082,96 +1106,97 @@ export default function HomePage() {
             ) : (
               <>
                 {visibleWhistleMarkets.map((market) => {
-                const tags = Array.isArray(market.tags) ? market.tags : [];
-                const category = tags[0] || "Market";
-                const tips = polymarketTipsById[String(market.id)] || [];
-                const tipsExpanded = expandedMarketTips[String(market.id)];
-                const params = new URLSearchParams();
-                params.set("pm_category", category);
-                params.set("pm_question", market.question || "");
-                params.set("pm_slug", market.slug || "");
-                params.set("pm_id", String(market.id || ""));
-                params.set("pm_end", market.endDate || "");
-                if (tags.length) params.set("pm_tags", tags.join("|"));
-                const tipHref = `/create?${params.toString()}`;
-                return (
-                  <div key={market.id} className="card">
-                  <div className="stat-row" style={{ position: "relative" }}>
-                    {market.image && (
-                      <img
-                        src={market.image}
-                        alt={market.question}
-                          style={{ width: 40, height: 40, borderRadius: 10, objectFit: "cover" }}
-                        />
-                      )}
-                      <div>
-                        <p className="muted">Polymarket</p>
-                        <h3 style={{ margin: 0 }}>{market.question}</h3>
-                      </div>
-                      {tips.length > 0 && (
-                        <div className="tip-indicator">
-                          <span className="tip-count">{tips.length}</span>
-                          <button
-                            type="button"
-                            className={`tip-dot ${tipsExpanded ? "active" : ""}`}
-                            title="Tips available"
-                            onClick={() =>
-                              setExpandedMarketTips((prev) => ({
-                                ...prev,
-                                [String(market.id)]: !prev[String(market.id)]
-                              }))
-                            }
+                  const tags = Array.isArray(market.tags) ? market.tags : [];
+                  const category = tags[0] || "Market";
+                  const tips = polymarketTipsById[String(market.id)] || [];
+                  const tipsExpanded = expandedMarketTips[String(market.id)];
+                  const params = new URLSearchParams();
+                  params.set("pm_category", category);
+                  params.set("pm_question", market.question || "");
+                  params.set("pm_slug", market.slug || "");
+                  params.set("pm_id", String(market.id || ""));
+                  params.set("pm_end", market.endDate || "");
+                  if (tags.length) params.set("pm_tags", tags.join("|"));
+                  const tipHref = `/create?${params.toString()}`;
+
+                  return (
+                    <div key={market.id} className="card">
+                      <div className="stat-row" style={{ position: "relative" }}>
+                        {market.image && (
+                          <img
+                            src={market.image}
+                            alt={market.question}
+                            style={{ width: 40, height: 40, borderRadius: 10, objectFit: "cover" }}
                           />
+                        )}
+                        <div>
+                          <p className="muted">Polymarket</p>
+                          <h3 style={{ margin: 0 }}>{market.question}</h3>
+                        </div>
+                        {tips.length > 0 && (
+                          <div className="tip-indicator">
+                            <span className="tip-count">{tips.length}</span>
+                            <button
+                              type="button"
+                              className={`tip-dot ${tipsExpanded ? "active" : ""}`}
+                              title="Tips available"
+                              onClick={() =>
+                                setExpandedMarketTips((prev) => ({
+                                  ...prev,
+                                  [String(market.id)]: !prev[String(market.id)]
+                                }))
+                              }
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <div className="stat-row">
+                        <span className="stat">24h volume: {Number(market.volume24hr || 0).toFixed(0)}</span>
+                        <span className="stat">Ends: {new Date(market.endDate).toLocaleDateString()}</span>
+                      </div>
+                      {tipsExpanded && tips.length > 0 && (
+                        <div className="tip-list">
+                          <span className="muted">Whistles available:</span>
+                          {tips.map((pool) => (
+                            <Link
+                              key={pool.id}
+                              className="tip-link"
+                              href={`/pool/${pool.id}`}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                window.location.href = `/pool/${pool.id}`;
+                              }}
+                            >
+                              {pool.title || pool.id}
+                            </Link>
+                          ))}
                         </div>
                       )}
-                    </div>
-                    <div className="stat-row">
-                      <span className="stat">24h volume: {Number(market.volume24hr || 0).toFixed(0)}</span>
-                      <span className="stat">Ends: {new Date(market.endDate).toLocaleDateString()}</span>
-                    </div>
-                    {tipsExpanded && tips.length > 0 && (
-                      <div className="tip-list">
-                        <span className="muted">Whistles available:</span>
-                        {tips.map((pool) => (
-                          <Link
-                            key={pool.id}
-                            className="tip-link"
-                            href={`/pool/${pool.id}`}
-                            onClick={(event) => {
-                              event.preventDefault();
-                              window.location.href = `/pool/${pool.id}`;
-                            }}
-                          >
-                            {pool.title || pool.id}
-                          </Link>
-                        ))}
+                      <div className="stat-row">
+                        <span className="muted">Have insight on this market? Create a pool.</span>
+                        <Link
+                          className="button cta"
+                          href={tipHref}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            window.location.href = tipHref;
+                          }}
+                        >
+                          Whistle
+                        </Link>
                       </div>
-                    )}
-                    <div className="stat-row">
-                      <span className="muted">Have insight on this market? Create a pool.</span>
-                      <Link
-                        className="button cta"
-                        href={tipHref}
-                        onClick={(event) => {
-                          event.preventDefault();
-                          window.location.href = tipHref;
-                        }}
-                      >
-                        Whistle
-                      </Link>
                     </div>
+                  );
+                })}
+                {searching && filteredWhistleMarkets.length > searchLimit && (
+                  <div className="card" style={{ alignItems: "center", justifyContent: "center" }}>
+                    <p className="muted">Showing {searchLimit} of {filteredWhistleMarkets.length} results</p>
+                    <button className="button" onClick={() => setSearchLimit((prev) => prev + 60)}>
+                      Load more
+                    </button>
                   </div>
-                );
-              })}
-              {searching && filteredWhistleMarkets.length > searchLimit && (
-                <div className="card" style={{ alignItems: "center", justifyContent: "center" }}>
-                  <p className="muted">Showing {searchLimit} of {filteredWhistleMarkets.length} results</p>
-                  <button className="button" onClick={() => setSearchLimit((prev) => prev + 60)}>
-                    Load more
-                  </button>
-                </div>
-              )}
-            </>
+                )}
+              </>
             )}
           </div>
         </div>

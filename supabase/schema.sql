@@ -109,6 +109,16 @@ create table if not exists public.pool_state_cache (
 
 create index if not exists idx_pool_state_cache_updated_at on public.pool_state_cache(updated_at);
 
+create table if not exists public.pool_comments (
+  id uuid primary key default gen_random_uuid(),
+  poolid text not null references public.pools(id) on delete cascade,
+  author text not null,
+  message text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_pool_comments_poolid on public.pool_comments(poolid);
+
 insert into storage.buckets (id, name, public)
 values ('pool-attachments', 'pool-attachments', true)
 on conflict do nothing;

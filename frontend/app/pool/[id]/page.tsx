@@ -4,11 +4,14 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
+  fetchPoolComments,
   fetchPoolContributors,
   fetchPoolVotes,
   fetchPools,
+  postPoolComment,
   submitPoolVote,
   type PoolContributor,
+  type PoolComment,
   type PoolVoteSummary
 } from "../../../lib/api";
 import { describePolicy } from "../../../lib/tacoClient";
@@ -62,6 +65,10 @@ export default function PoolDetailPage() {
   const [onchainState, setOnchainState] = useState<PoolOnchainState | null>(null);
   const [contributors, setContributors] = useState<PoolContributor[]>([]);
   const [contributorsStatus, setContributorsStatus] = useState<string | null>(null);
+  const [comments, setComments] = useState<PoolComment[]>([]);
+  const [commentInput, setCommentInput] = useState("");
+  const [commentStatus, setCommentStatus] = useState<string | null>(null);
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewType, setPreviewType] = useState<"image" | "pdf" | null>(null);
   const { walletAddress, connectWallet } = useWallet();
@@ -89,6 +96,12 @@ export default function PoolDetailPage() {
   useEffect(() => {
     if (!poolId) return;
     loadContributors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [poolId]);
+
+  useEffect(() => {
+    if (!poolId) return;
+    loadComments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [poolId]);
 
@@ -139,6 +152,44 @@ export default function PoolDetailPage() {
       setContributors(data.contributors || []);
     } catch (err: any) {
       setContributorsStatus(err?.message || "Failed to load contributors");
+    }
+  }
+
+  async function loadComments() {
+    if (!poolId) return;
+    try {
+      setCommentStatus(null);
+      const data = await fetchPoolComments(poolId);
+      setComments(data.comments || []);
+    } catch (err: any) {
+      setCommentStatus(err?.message || "Failed to load comments");
+    }
+  }
+
+  async function handleSubmitComment() {
+    if (!poolId) return;
+    if (!commentInput.trim()) {
+      setCommentStatus("Comment cannot be empty");
+      return;
+    }
+    try {
+      setIsSubmittingComment(true);
+      setCommentStatus(null);
+      let author = walletAddress;
+      if (!author) {
+        author = await connectWallet();
+      }
+      if (!author) {
+        throw new Error("Wallet connection is required");
+      }
+      await postPoolComment(poolId, author, commentInput.trim());
+      setCommentInput("");
+      await loadComments();
+      setCommentStatus("Comment posted");
+    } catch (err: any) {
+      setCommentStatus(err?.message || "Failed to post comment");
+    } finally {
+      setIsSubmittingComment(false);
     }
   }
 
@@ -331,6 +382,51 @@ export default function PoolDetailPage() {
             ))}
           </div>
         )}
+      </section>
+
+      <section className="panel space-y-2">
+        <h2 className="section-title">Comments</h2>
+        {comments.length === 0 && !commentStatus && (
+          <p className="muted">No comments yet. Be the first to share a reaction.</p>
+        )}
+        {comments.length > 0 && (
+          <div className="comment-list">
+            {comments.map((comment) => (
+              <div key={comment.id || `${comment.author}-${comment.created_at}`} className="comment-card">
+                <div className="comment-header">
+                  <Link
+                    className="comment-author"
+                    href={`/profile/${comment.author.toLowerCase()}`}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      window.location.href = `/profile/${comment.author.toLowerCase()}`;
+                    }}
+                  >
+                    {shortAddress(comment.author)}
+                  </Link>
+                  {comment.created_at && (
+                    <span className="comment-time">{new Date(comment.created_at).toLocaleString()}</span>
+                  )}
+                </div>
+                <p className="comment-body">{comment.message}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="comment-input-row">
+          <textarea
+            className="input"
+            style={{ minHeight: 88, flex: 1 }}
+            placeholder="Add a comment..."
+            value={commentInput}
+            onChange={(e) => setCommentInput(e.target.value)}
+          />
+          <button className="button cta" type="button" disabled={isSubmittingComment} onClick={handleSubmitComment}>
+            Post
+          </button>
+        </div>
+        {!walletAddress && <p className="muted">Connect a wallet to comment.</p>}
+        {commentStatus && <p className="muted">{commentStatus}</p>}
       </section>
 
       <section className="panel space-y-2">

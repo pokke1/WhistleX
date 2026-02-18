@@ -2008,6 +2008,63 @@ input[type="number"] {
   border: 1px solid rgba(201, 184, 154, 0.25);
 }
 
+.comment-list {
+  display: grid;
+  gap: 10px;
+}
+
+.comment-card {
+  border: 1px solid var(--panel-border);
+  background: var(--panel-bg);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.comment-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.comment-author {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.comment-time {
+  opacity: 0.85;
+  font-size: 11px;
+}
+
+.comment-body {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.comment-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+@media (max-width: 768px) {
+  .comment-card {
+    padding: 8px 10px;
+  }
+
+  .comment-body {
+    font-size: 12.5px;
+  }
+
+  .comment-input-row {
+    flex-direction: column;
+  }
+}
+
 @media (max-width: 720px) {
   .app-nav {
     flex-direction: column;

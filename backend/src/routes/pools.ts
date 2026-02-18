@@ -43,6 +43,35 @@ router.get("/", async (_req: Request, res: Response) => {
   return res.json(normalized);
 });
 
+router.get("/comments/counts", async (req: Request, res: Response) => {
+  const idsParam = typeof req.query?.ids === "string" ? req.query.ids : "";
+  const ids = idsParam
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+  if (ids.length === 0) {
+    return res.json({});
+  }
+
+  const { data, error } = await supabase
+    .from("pool_comments")
+    .select("poolid")
+    .in("poolid", ids);
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  const counts: Record<string, number> = {};
+  for (const row of data || []) {
+    const poolId = String(row.poolid || "");
+    if (poolId) {
+      counts[poolId] = (counts[poolId] || 0) + 1;
+    }
+  }
+
+  return res.json(counts);
+});
+
 router.get("/:poolId/contributors", async (req: Request, res: Response) => {
   const poolId = req.params?.poolId;
   if (!poolId) {
@@ -120,6 +149,47 @@ router.get("/:poolId/state", async (req: Request, res: Response) => {
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || "failed to fetch pool state" });
   }
+});
+
+router.get("/:poolId/comments", async (req: Request, res: Response) => {
+  const poolId = req.params?.poolId;
+  if (!poolId) {
+    return res.status(400).json({ error: "poolId is required" });
+  }
+
+  const { data, error } = await supabase
+    .from("pool_comments")
+    .select("id, poolid, author, message, created_at")
+    .eq("poolid", poolId)
+    .order("created_at", { ascending: true });
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  return res.json({ poolId, comments: data || [] });
+});
+
+router.post("/:poolId/comments", async (req: Request, res: Response) => {
+  const poolId = req.params?.poolId;
+  const author = String(req.body?.author || "").trim();
+  const message = String(req.body?.message || "").trim();
+  if (!poolId) {
+    return res.status(400).json({ error: "poolId is required" });
+  }
+  if (!author || !message) {
+    return res.status(400).json({ error: "author and message are required" });
+  }
+
+  const { error } = await supabase.from("pool_comments").insert({
+    poolid: poolId,
+    author,
+    message
+  });
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  return res.json({ ok: true });
 });
 
 router.post("/", async (req: Request, res: Response) => {
