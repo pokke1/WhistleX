@@ -50,6 +50,8 @@ function CreatePoolPageContent() {
     const category = (searchParams.get("pm_category") || "").trim();
     const marketId = (searchParams.get("pm_id") || "").trim();
     const slug = (searchParams.get("pm_slug") || "").trim();
+    const eventSlug = (searchParams.get("pm_event_slug") || "").trim();
+    const marketUrl = (searchParams.get("pm_market_url") || "").trim();
     const endDate = (searchParams.get("pm_end") || "").trim();
 
     if (category && !pmCategory) setPmCategory(category);
@@ -65,7 +67,9 @@ function CreatePoolPageContent() {
     if (marketId) {
       const marker = `<!-- polymarket_id:${marketId} -->`;
       const slugMarker = slug ? `<!-- polymarket_slug:${slug} -->` : "";
-      const combined = [marker, slugMarker].filter(Boolean).join("\n");
+      const eventSlugMarker = eventSlug ? `<!-- polymarket_event_slug:${eventSlug} -->` : "";
+      const urlMarker = marketUrl ? `<!-- polymarket_url:${marketUrl} -->` : "";
+      const combined = [marker, slugMarker, eventSlugMarker, urlMarker].filter(Boolean).join("\n");
       if (!description.includes(marker)) {
         const next = description ? `${description}\n\n${combined}` : combined;
         setDescription(next);

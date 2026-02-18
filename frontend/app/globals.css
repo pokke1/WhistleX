@@ -1840,6 +1840,33 @@ input[type="number"] {
   scrollbar-color: rgba(77, 163, 255, 0.35) rgba(13, 16, 22, 0.4);
 }
 
+.whistle-market-card {
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, filter 0.18s ease;
+}
+
+.whistle-market-card:hover {
+  transform: scale(1.015);
+  box-shadow: 0 20px 44px rgba(5, 9, 16, 0.55);
+  border-color: rgba(77, 163, 255, 0.45);
+  filter: brightness(1.04);
+}
+
+.whistle-market-card:focus-visible {
+  outline: 2px solid rgba(77, 163, 255, 0.8);
+  outline-offset: 2px;
+  border-color: rgba(77, 163, 255, 0.5);
+}
+
+[data-theme="gold"] .whistle-market-card:hover {
+  border-color: rgba(201, 184, 154, 0.6);
+}
+
+[data-theme="gold"] .whistle-market-card:focus-visible {
+  outline-color: rgba(201, 184, 154, 0.8);
+  border-color: rgba(201, 184, 154, 0.6);
+}
+
 .whistle-track::-webkit-scrollbar {
   height: 6px;
 }

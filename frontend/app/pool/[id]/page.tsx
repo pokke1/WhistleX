@@ -71,6 +71,7 @@ export default function PoolDetailPage() {
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewType, setPreviewType] = useState<"image" | "pdf" | null>(null);
+  const [resolvedPolymarketUrl, setResolvedPolymarketUrl] = useState<string | null>(null);
   const { walletAddress, connectWallet } = useWallet();
 
   useEffect(() => {
@@ -120,6 +121,39 @@ export default function PoolDetailPage() {
         setOnchainState(null);
       });
   }, [poolId, walletAddress]);
+
+  useEffect(() => {
+    if (!pool) {
+      setResolvedPolymarketUrl(null);
+      return;
+    }
+
+    const ref = parsePolymarketReference(pool.description);
+    if (!ref.marketId && !ref.marketSlug && !ref.eventSlug) {
+      setResolvedPolymarketUrl(null);
+      return;
+    }
+
+    let cancelled = false;
+    const params = new URLSearchParams();
+    if (ref.marketId) params.set("marketId", ref.marketId);
+    if (ref.marketSlug) params.set("marketSlug", ref.marketSlug);
+    if (ref.eventSlug) params.set("eventSlug", ref.eventSlug);
+
+    fetch(`/api/polymarket/resolve?${params.toString()}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled) return;
+        setResolvedPolymarketUrl(data?.marketUrl || ref.marketUrl || null);
+      })
+      .catch(() => {
+        if (!cancelled) setResolvedPolymarketUrl(ref.marketUrl || null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pool]);
 
   async function handleVote(vote: 1 | -1) {
     if (!pool) return;
@@ -214,6 +248,7 @@ export default function PoolDetailPage() {
   if (error) return <main className="app-shell">{error}</main>;
   if (!pool) return <main className="app-shell">Loading...</main>;
   const polymarketRef = parsePolymarketReference(pool.description);
+  const polymarketUrl = resolvedPolymarketUrl || polymarketRef.marketUrl;
 
   return (
     <main className="app-shell space-y-4">
@@ -221,9 +256,9 @@ export default function PoolDetailPage() {
         <h1 className="title">{pool.title || `Pool ${pool.id}`}</h1>
         {!pool.title && <p className="muted">{pool.id}</p>}
         {polymarketRef.cleanDescription && <p className="muted">{polymarketRef.cleanDescription}</p>}
-        {polymarketRef.marketUrl && (
+        {polymarketUrl && (
           <p className="muted">
-            <a href={polymarketRef.marketUrl} target="_blank" rel="noreferrer">
+            <a href={polymarketUrl} target="_blank" rel="noreferrer">
               View related Polymarket bet
             </a>
           </p>

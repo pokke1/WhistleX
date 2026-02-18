@@ -73,7 +73,19 @@ export default function HomePage() {
   const [voteSummaryByPool, setVoteSummaryByPool] = useState<Record<string, { upvotes: number; downvotes: number }>>({});
   const [commentCountsByPool, setCommentCountsByPool] = useState<Record<string, number>>({});
   const [allMarkets, setAllMarkets] = useState<
-    { id: string; slug: string; question: string; endDate: string; createdAt: string | null; volume24hr: number; image: string | null; tags: string[] }[]
+    {
+      id: string;
+      slug: string | null;
+      eventSlug?: string | null;
+      marketUrl?: string | null;
+      optionsCount?: number;
+      question: string;
+      endDate: string;
+      createdAt: string | null;
+      volume24hr: number;
+      image: string | null;
+      tags: string[];
+    }[]
   >([]);
   const [marketsStatus, setMarketsStatus] = useState<string | null>(null);
   const [marketsLoading, setMarketsLoading] = useState<boolean>(false);
@@ -1106,88 +1118,113 @@ export default function HomePage() {
             ) : (
               <>
                 {visibleWhistleMarkets.map((market) => {
-                  const tags = Array.isArray(market.tags) ? market.tags : [];
-                  const category = tags[0] || "Market";
-                  const tips = polymarketTipsById[String(market.id)] || [];
-                  const tipsExpanded = expandedMarketTips[String(market.id)];
-                  const params = new URLSearchParams();
-                  params.set("pm_category", category);
-                  params.set("pm_question", market.question || "");
-                  params.set("pm_slug", market.slug || "");
-                  params.set("pm_id", String(market.id || ""));
-                  params.set("pm_end", market.endDate || "");
-                  if (tags.length) params.set("pm_tags", tags.join("|"));
-                  const tipHref = `/create?${params.toString()}`;
-
-                  return (
-                    <div key={market.id} className="card">
-                      <div className="stat-row" style={{ position: "relative" }}>
-                        {market.image && (
-                          <img
-                            src={market.image}
-                            alt={market.question}
-                            style={{ width: 40, height: 40, borderRadius: 10, objectFit: "cover" }}
+                const tags = Array.isArray(market.tags) ? market.tags : [];
+                const category = tags[0] || "Market";
+                const tips = polymarketTipsById[String(market.id)] || [];
+                const tipsExpanded = expandedMarketTips[String(market.id)];
+                const marketSlug = market.slug || "";
+                const eventSlug = market.eventSlug || "";
+                const marketUrl = market.marketUrl || "";
+                const params = new URLSearchParams();
+                params.set("pm_category", category);
+                params.set("pm_question", market.question || "");
+                params.set("pm_slug", marketSlug || eventSlug);
+                params.set("pm_event_slug", eventSlug);
+                if (marketUrl) params.set("pm_market_url", marketUrl);
+                params.set("pm_id", String(market.id || ""));
+                params.set("pm_end", market.endDate || "");
+                if (tags.length) params.set("pm_tags", tags.join("|"));
+                const tipHref = `/create?${params.toString()}`;
+                const marketHref = marketUrl || null;
+                return (
+                  <div
+                    key={market.id}
+                    className="card whistle-market-card"
+                    onClick={() => {
+                      if (!marketHref) return;
+                      window.location.href = marketHref;
+                    }}
+                    onKeyDown={(event) => {
+                      if (!marketHref) return;
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        window.location.href = marketHref;
+                      }
+                    }}
+                    role="link"
+                    tabIndex={0}
+                    aria-label={market.question ? `Open Polymarket market: ${market.question}` : "Open Polymarket market"}
+                  >
+                    <div className="stat-row" style={{ position: "relative" }}>
+                      {market.image && (
+                        <img
+                          src={market.image}
+                          alt={market.question}
+                          style={{ width: 40, height: 40, borderRadius: 10, objectFit: "cover" }}
+                        />
+                      )}
+                      <div>
+                        <p className="muted">Polymarket</p>
+                        <h3 style={{ margin: 0 }}>{market.question}</h3>
+                      </div>
+                      {tips.length > 0 && (
+                        <div className="tip-indicator">
+                          <span className="tip-count">{tips.length}</span>
+                          <button
+                            type="button"
+                            className={`tip-dot ${tipsExpanded ? "active" : ""}`}
+                            title="Tips available"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setExpandedMarketTips((prev) => ({
+                                ...prev,
+                                [String(market.id)]: !prev[String(market.id)]
+                              }));
+                            }}
                           />
-                        )}
-                        <div>
-                          <p className="muted">Polymarket</p>
-                          <h3 style={{ margin: 0 }}>{market.question}</h3>
-                        </div>
-                        {tips.length > 0 && (
-                          <div className="tip-indicator">
-                            <span className="tip-count">{tips.length}</span>
-                            <button
-                              type="button"
-                              className={`tip-dot ${tipsExpanded ? "active" : ""}`}
-                              title="Tips available"
-                              onClick={() =>
-                                setExpandedMarketTips((prev) => ({
-                                  ...prev,
-                                  [String(market.id)]: !prev[String(market.id)]
-                                }))
-                              }
-                            />
-                          </div>
-                        )}
-                      </div>
-                      <div className="stat-row">
-                        <span className="stat">24h volume: {Number(market.volume24hr || 0).toFixed(0)}</span>
-                        <span className="stat">Ends: {new Date(market.endDate).toLocaleDateString()}</span>
-                      </div>
-                      {tipsExpanded && tips.length > 0 && (
-                        <div className="tip-list">
-                          <span className="muted">Whistles available:</span>
-                          {tips.map((pool) => (
-                            <Link
-                              key={pool.id}
-                              className="tip-link"
-                              href={`/pool/${pool.id}`}
-                              onClick={(event) => {
-                                event.preventDefault();
-                                window.location.href = `/pool/${pool.id}`;
-                              }}
-                            >
-                              {pool.title || pool.id}
-                            </Link>
-                          ))}
                         </div>
                       )}
-                      <div className="stat-row">
-                        <span className="muted">Have insight on this market? Create a pool.</span>
-                        <Link
-                          className="button cta"
-                          href={tipHref}
-                          onClick={(event) => {
-                            event.preventDefault();
-                            window.location.href = tipHref;
-                          }}
-                        >
-                          Whistle
-                        </Link>
-                      </div>
                     </div>
-                  );
-                })}
+                    <div className="stat-row">
+                      <span className="stat">24h volume: {Number(market.volume24hr || 0).toFixed(0)}</span>
+                      <span className="stat">Ends: {new Date(market.endDate).toLocaleDateString()}</span>
+                    </div>
+                    {tipsExpanded && tips.length > 0 && (
+                      <div className="tip-list">
+                        <span className="muted">Whistles available:</span>
+                        {tips.map((pool) => (
+                          <Link
+                            key={pool.id}
+                            className="tip-link"
+                            href={`/pool/${pool.id}`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              event.preventDefault();
+                              window.location.href = `/pool/${pool.id}`;
+                            }}
+                          >
+                            {pool.title || pool.id}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                    <div className="stat-row">
+                      <span className="muted">Have insight on this market? Create a pool.</span>
+                      <Link
+                        className="button cta"
+                        href={tipHref}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          event.preventDefault();
+                          window.location.href = tipHref;
+                        }}
+                      >
+                        Whistle
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
                 {searching && filteredWhistleMarkets.length > searchLimit && (
                   <div className="card" style={{ alignItems: "center", justifyContent: "center" }}>
                     <p className="muted">Showing {searchLimit} of {filteredWhistleMarkets.length} results</p>

@@ -14,6 +14,17 @@ function parseDate(value?: string | null) {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
+function parseArrayField(value: unknown): any[] {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string") return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function GET() {
   try {
     const now = Date.now();
@@ -41,9 +52,23 @@ export async function GET() {
           if (!endDate || endDate <= now) continue;
           if (market?.active === false || market?.closed === true) continue;
           const createdAt = market?.createdAt || event?.createdAt || event?.creationDate || event?.startDate || null;
+          const eventSlug = event?.slug || null;
+          const marketSlug = market?.slug || null;
+          const optionsCount = parseArrayField(market?.outcomes).length;
+          const marketUrl =
+            eventSlug && marketSlug && eventSlug !== marketSlug
+              ? `https://polymarket.com/event/${eventSlug}/${marketSlug}`
+              : eventSlug
+                ? `https://polymarket.com/event/${eventSlug}`
+                : marketSlug
+                  ? `https://polymarket.com/event/${marketSlug}`
+                  : null;
           markets.push({
             id: market?.id,
-            slug: market?.slug,
+            slug: marketSlug,
+            eventSlug,
+            marketUrl,
+            optionsCount,
             question: market?.question,
             endDate: market?.endDate,
             createdAt,
