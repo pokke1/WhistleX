@@ -352,6 +352,9 @@ function CreatePoolPageContent() {
           </button>
           {status && <span className="muted">{status}</span>}
         </div>
+        <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+          Do not reload or close your browser until pool creation finishes.
+        </p>
       </form>
 
       <form onSubmit={handleSubmit} className="panel mobile-only space-y-4">
@@ -519,6 +522,9 @@ function CreatePoolPageContent() {
                 Create pool and encrypt
               </button>
             </div>
+            <p className="muted" style={{ fontSize: 12 }}>
+              Do not reload or close your browser until pool creation finishes.
+            </p>
             {status && <span className="muted">{status}</span>}
           </div>
         )}

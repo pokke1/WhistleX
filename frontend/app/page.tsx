@@ -27,6 +27,7 @@ function shortAddress(address: string) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
+
 interface Pool {
   id: string;
   investigator: string;
@@ -127,7 +128,13 @@ export default function HomePage() {
     setError(null);
     setPoolsLoading(true);
     fetchPools()
-      .then(setPools)
+      .then((data) => {
+        const filtered = (Array.isArray(data) ? data : []).filter((pool: any) => {
+          const policy = pool?.policyId;
+          return Boolean(policy && String(policy).trim().length > 0);
+        });
+        setPools(filtered);
+      })
       .catch((err) => setError(err.message))
       .finally(() => setPoolsLoading(false));
   }, []);
