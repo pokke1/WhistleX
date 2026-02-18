@@ -95,6 +95,20 @@ create table if not exists public.pool_files (
 
 create index if not exists idx_pool_files_poolid on public.pool_files(poolid);
 
+create table if not exists public.pool_state_cache (
+  poolid text primary key references public.pools(id) on delete cascade,
+  currency text,
+  currency_decimals integer,
+  total_contributions text,
+  threshold text,
+  min_contribution_for_decrypt text,
+  deadline text,
+  unlocked boolean,
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_pool_state_cache_updated_at on public.pool_state_cache(updated_at);
+
 insert into storage.buckets (id, name, public)
 values ('pool-attachments', 'pool-attachments', true)
 on conflict do nothing;

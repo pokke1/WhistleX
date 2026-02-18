@@ -40,8 +40,8 @@ export interface CreatePoolOnchainParams {
 const AMOY_CHAIN_ID_DEC = 80002;
 const AMOY_CHAIN_ID_HEX = '0x13882'; 
 
-const DEFAULT_AMOY_RPC_URL = process.env.NEXT_PUBLIC_AMOY_RPC_URL || "https://polygon-amoy.drpc.org";
 const DEFAULT_USDC_DECIMALS = Number(process.env.NEXT_PUBLIC_USDC_DECIMALS || "6");
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
 
 export interface PoolOnchainState {
   currency: string;
@@ -153,43 +153,25 @@ export async function createPoolOnchain(params: CreatePoolOnchainParams) {
 }
 
 export async function fetchPoolState(poolAddress: string, userAddress?: string): Promise<PoolOnchainState> {
-  const provider = new providers.JsonRpcProvider(DEFAULT_AMOY_RPC_URL);
-  const contract = new Contract(poolAddress, poolAbi, provider);
-
-  const [currency, currencyDecimals, totalContributions, threshold, minContributionForDecrypt, deadline, unlocked] =
-    await Promise.all([
-      contract.currency(),
-      contract.currencyDecimals(),
-      contract.totalContributions(),
-      contract.threshold(),
-      contract.minContributionForDecrypt(),
-      contract.deadline(),
-      contract.unlocked()
-    ]);
-  const decimalsNumber = Number(currencyDecimals);
-  const normalizedDecimals = Number.isFinite(decimalsNumber) ? decimalsNumber : DEFAULT_USDC_DECIMALS;
-
-  let userContribution: string | undefined;
-  let canDecrypt: boolean | undefined;
+  const url = new URL(`${BACKEND_URL}/pools/${poolAddress}/state`);
   if (userAddress) {
-    const [contrib, canDecryptResult] = await Promise.all([
-      contract.contributionOf(userAddress),
-      contract.canDecrypt(userAddress)
-    ]);
-    userContribution = contrib.toString();
-    canDecrypt = canDecryptResult;
+    url.searchParams.set("address", userAddress);
   }
-
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    throw new Error("failed to fetch pool state");
+  }
+  const body = await res.json();
   return {
-    currency,
-    currencyDecimals: normalizedDecimals,
-    totalContributions: totalContributions.toString(),
-    threshold: threshold.toString(),
-    minContributionForDecrypt: minContributionForDecrypt.toString(),
-    deadline: deadline.toString(),
-    unlocked,
-    userContribution,
-    canDecrypt
+    currency: body.currency,
+    currencyDecimals: Number.isFinite(body.currencyDecimals) ? body.currencyDecimals : DEFAULT_USDC_DECIMALS,
+    totalContributions: body.totalContributions,
+    threshold: body.threshold,
+    minContributionForDecrypt: body.minContributionForDecrypt,
+    deadline: body.deadline,
+    unlocked: Boolean(body.unlocked),
+    userContribution: body.userContribution,
+    canDecrypt: body.canDecrypt
   };
 }
 

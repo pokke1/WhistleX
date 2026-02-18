@@ -1,6 +1,7 @@
 import express, { Request, Response } from "express";
 import { supabase } from "../db/supabase.js";
 import { buildCanonicalPolicy } from "../services/tacoPolicy.js";
+import { getCachedPoolState } from "../services/poolStateCache.js";
 
 const router = express.Router();
 
@@ -104,6 +105,21 @@ router.get("/:poolId/contributors", async (req: Request, res: Response) => {
     });
 
   return res.json({ poolId, contributors });
+});
+
+router.get("/:poolId/state", async (req: Request, res: Response) => {
+  const poolId = req.params?.poolId;
+  if (!poolId) {
+    return res.status(400).json({ error: "poolId is required" });
+  }
+
+  const address = typeof req.query?.address === "string" ? req.query.address : undefined;
+  try {
+    const state = await getCachedPoolState(poolId, address);
+    return res.json(state);
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || "failed to fetch pool state" });
+  }
 });
 
 router.post("/", async (req: Request, res: Response) => {
