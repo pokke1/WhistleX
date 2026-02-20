@@ -2,7 +2,8 @@ import { ethers } from "ethers";
 import IntelPoolAbi from "../../contracts/IntelPool.json" with { type: "json" };
 import { supabase } from "../db/supabase.js";
 
-const DEFAULT_POLYGON_AMOY_RPC_URL = "https://polygon-amoy.drpc.org";
+const DEFAULT_PUBLIC_AMOY_RPC_URL = "https://rpc-amoy.polygon.technology";
+const DEFAULT_FALLBACK_AMOY_RPC_URL = "https://polygon-amoy.drpc.org";
 const CACHE_TTL_MS = 30_000;
 const DEFAULT_USDC_DECIMALS = 6;
 
@@ -45,7 +46,7 @@ function normalizeCache(row: CacheRow): PoolStateResponse {
 }
 
 async function fetchOnchainState(poolId: string) {
-  const rpcUrl = process.env.AMOY_RPC_URL || process.env.RPC_URL || DEFAULT_POLYGON_AMOY_RPC_URL;
+  const rpcUrl = process.env.PUBLIC_AMOY_RPC_URL || DEFAULT_PUBLIC_AMOY_RPC_URL || DEFAULT_FALLBACK_AMOY_RPC_URL;
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const contract = new ethers.Contract(poolId, IntelPoolAbi.abi, provider);
 
@@ -72,7 +73,7 @@ async function fetchOnchainState(poolId: string) {
 }
 
 async function fetchUserState(poolId: string, userAddress: string) {
-  const rpcUrl = process.env.AMOY_RPC_URL || process.env.RPC_URL || DEFAULT_POLYGON_AMOY_RPC_URL;
+  const rpcUrl = process.env.PUBLIC_AMOY_RPC_URL || DEFAULT_PUBLIC_AMOY_RPC_URL || DEFAULT_FALLBACK_AMOY_RPC_URL;
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const contract = new ethers.Contract(poolId, IntelPoolAbi.abi, provider);
 

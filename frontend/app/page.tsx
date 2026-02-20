@@ -226,7 +226,8 @@ export default function HomePage() {
   useEffect(() => {
     setMarketsStatus(null);
     setMarketsLoading(true);
-    fetch("/api/polymarket/all")
+    const backend = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
+    fetch(`${backend}/polymarket/markets`)
       .then((res) => {
         if (!res.ok) throw new Error("failed to load Polymarket markets");
         return res.json();

@@ -63,7 +63,8 @@ export default function AppNav() {
     () => [
       { href: "/", label: "Marketplace" },
       { href: "/create", label: "Create" },
-      { href: "/profile", label: "Profile" }
+      { href: "/profile", label: "Profile" },
+      { href: "/docs", label: "Docs" }
     ],
     []
   );

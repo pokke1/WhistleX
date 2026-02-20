@@ -5,7 +5,8 @@ import IntelPoolAbi from "../../contracts/IntelPool.json" with { type: "json" };
 import { supabase } from "../db/supabase.js";
 import { PoolRecord, ContributionRecord } from "../types/models.js";
 
-const DEFAULT_POLYGON_AMOY_RPC_URL = "https://polygon-amoy.drpc.org";
+const DEFAULT_PUBLIC_AMOY_RPC_URL = "https://rpc-amoy.polygon.technology";
+const DEFAULT_FALLBACK_AMOY_RPC_URL = "https://polygon-amoy.drpc.org";
 
 dotenv.config();
 
@@ -15,7 +16,12 @@ type PoolListenerState = {
 };
 
 export async function startIndexer(factoryAddress: string) {
-  const rpcUrl = process.env.RPC_URL || process.env.AMOY_RPC_URL || DEFAULT_POLYGON_AMOY_RPC_URL;
+  const rpcUrl =
+    process.env.PUBLIC_AMOY_RPC_URL ||
+    DEFAULT_PUBLIC_AMOY_RPC_URL ||
+    process.env.RPC_URL ||
+    process.env.AMOY_RPC_URL ||
+    DEFAULT_FALLBACK_AMOY_RPC_URL;
   if (!rpcUrl) {
     console.warn("RPC_URL is not set; skipping indexer startup.");
     return;

@@ -2092,6 +2092,49 @@ input[type="number"] {
   }
 }
 
+.docs-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+}
+
+.docs-toc {
+  position: sticky;
+  top: 96px;
+  align-self: start;
+}
+
+.docs-links {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.docs-links a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.docs-links a:hover {
+  color: #dfe8ff;
+}
+
+.docs-body .panel {
+  scroll-margin-top: 96px;
+}
+
+@media (max-width: 900px) {
+  .docs-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .docs-toc {
+    position: relative;
+    top: 0;
+  }
+}
+
 @media (max-width: 720px) {
   .app-nav {
     flex-direction: column;
