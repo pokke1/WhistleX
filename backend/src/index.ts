@@ -5,6 +5,7 @@ import poolsRouter from "./routes/pools.js";
 import intelRouter from "./routes/intel.js";
 import profilesRouter from "./routes/profiles.js";
 import votesRouter from "./routes/votes.js";
+import authRouter from "./routes/auth.js";
 import polymarketRouter from "./routes/polymarket.js";
 import { startIndexer } from "./services/indexer.js";
 
@@ -52,6 +53,7 @@ app.use("/pools", poolsRouter);
 app.use("/intel", intelRouter);
 app.use("/profiles", profilesRouter);
 app.use("/votes", votesRouter);
+app.use("/auth", authRouter);
 app.use("/polymarket", polymarketRouter);
 
 const port = Number.parseInt(process.env.PORT ?? "8080", 10);

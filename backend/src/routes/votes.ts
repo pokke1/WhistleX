@@ -1,5 +1,6 @@
 import express, { Request, Response } from "express";
 import { ethers } from "ethers";
+import { requireAuth } from "../services/auth.js";
 import { supabase } from "../db/supabase.js";
 
 const DEFAULT_POLYGON_AMOY_RPC_URL = "https://polygon-amoy.drpc.org";
@@ -57,7 +58,7 @@ router.get("/pools/:poolId", async (req: Request, res: Response) => {
   });
 });
 
-router.post("/pools/:poolId", async (req: Request, res: Response) => {
+router.post("/pools/:poolId", requireAuth, async (req: Request, res: Response) => {
   const poolId = req.params?.poolId;
   const voterAddressRaw = req.body?.voterAddress;
   const voteRaw = req.body?.vote;
@@ -67,6 +68,9 @@ router.post("/pools/:poolId", async (req: Request, res: Response) => {
   }
 
   const voterAddress = String(voterAddressRaw).toLowerCase();
+  if (req.userAddress && req.userAddress.toLowerCase() !== voterAddress) {
+    return res.status(403).json({ error: "voterAddress must match authenticated address" });
+  }
   const vote = Number(voteRaw);
 
   const poolResult = await supabase.from("pools").select("id, investigator").eq("id", poolId).maybeSingle();

@@ -1,6 +1,7 @@
 import express, { Request, Response } from "express";
 import { supabase } from "../db/supabase.js";
 import { buildCanonicalPolicy } from "../services/tacoPolicy.js";
+import { requireAuth } from "../services/auth.js";
 import { getCachedPoolState } from "../services/poolStateCache.js";
 
 const router = express.Router();
@@ -169,7 +170,7 @@ router.get("/:poolId/comments", async (req: Request, res: Response) => {
   return res.json({ poolId, comments: data || [] });
 });
 
-router.post("/:poolId/comments", async (req: Request, res: Response) => {
+router.post("/:poolId/comments", requireAuth, async (req: Request, res: Response) => {
   const poolId = req.params?.poolId;
   const author = String(req.body?.author || "").trim();
   const message = String(req.body?.message || "").trim();
@@ -178,6 +179,9 @@ router.post("/:poolId/comments", async (req: Request, res: Response) => {
   }
   if (!author || !message) {
     return res.status(400).json({ error: "author and message are required" });
+  }
+  if (req.userAddress && req.userAddress.toLowerCase() !== author.toLowerCase()) {
+    return res.status(403).json({ error: "author must match authenticated address" });
   }
 
   const { error } = await supabase.from("pool_comments").insert({
@@ -192,12 +196,15 @@ router.post("/:poolId/comments", async (req: Request, res: Response) => {
   return res.json({ ok: true });
 });
 
-router.post("/", async (req: Request, res: Response) => {
+router.post("/", requireAuth, async (req: Request, res: Response) => {
   const { id, investigator, threshold, minContributionForDecrypt, deadline, ciphertext, title, description } = req.body;
   if (!id || !investigator || !threshold || !minContributionForDecrypt || !deadline || !ciphertext) {
     return res
       .status(400)
       .json({ error: "id, investigator, threshold, minContributionForDecrypt, deadline, ciphertext are required" });
+  }
+  if (req.userAddress && req.userAddress.toLowerCase() !== String(investigator).toLowerCase()) {
+    return res.status(403).json({ error: "investigator must match authenticated address" });
   }
 
   const policy = buildCanonicalPolicy(id, minContributionForDecrypt);
