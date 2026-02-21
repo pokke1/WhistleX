@@ -2120,6 +2120,53 @@ input[type="number"] {
   color: #dfe8ff;
 }
 
+.skill-page {
+  padding: 40px 0 80px;
+  display: flex;
+  justify-content: center;
+}
+
+.skill-card {
+  width: min(720px, 92vw);
+  background: rgba(12, 16, 28, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 28px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  display: grid;
+  gap: 20px;
+}
+
+.skill-card-header h1 {
+  font-size: 28px;
+  margin-bottom: 6px;
+}
+
+.skill-card-body {
+  display: grid;
+  gap: 16px;
+}
+
+.skill-prompt {
+  min-height: 120px;
+  resize: none;
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 14px 16px;
+  background: rgba(8, 12, 22, 0.75);
+  color: #e9edf5;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.skill-card-footer {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 10px;
+}
+
 .docs-body .panel {
   scroll-margin-top: 96px;
 }
