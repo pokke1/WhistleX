@@ -53,6 +53,41 @@ Writes are protected by wallet signatures.
 
 Tokens are short-lived; re-auth is safe and expected.
 
+### Auth Example (ethers.js)
+
+```ts
+import { Wallet } from "ethers";
+
+const base = "https://wstlx.com/api/whistlex";
+const wallet = new Wallet(process.env.PRIVATE_KEY!);
+const address = await wallet.getAddress();
+
+// 1) nonce
+const nonceRes = await fetch(`${base}/auth/nonce?address=${address}`);
+const { message } = await nonceRes.json();
+
+// 2) sign
+const signature = await wallet.signMessage(message);
+
+// 3) verify
+const verifyRes = await fetch(`${base}/auth/verify`, {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ address, signature })
+});
+const { token } = await verifyRes.json();
+
+// 4) authenticated write
+await fetch(`${base}/pools/0xPOOL/comments`, {
+  method: "POST",
+  headers: {
+    "content-type": "application/json",
+    Authorization: `Bearer ${token}`
+  },
+  body: JSON.stringify({ author: address, message: "intel looks solid" })
+});
+```
+
 ## API Index
 
 - \`GET /api\` → JSON index of all routes.
