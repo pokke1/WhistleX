@@ -29,19 +29,19 @@ declare module "express" {
   }
 
   export interface Router {
-    get: (path: string, handler: RequestHandler) => Router;
-    post: (path: string, handler: RequestHandler) => Router;
+    get: (path: string, ...handlers: RequestHandler[]) => Router;
+    post: (path: string, ...handlers: RequestHandler[]) => Router;
   }
 
   export interface Express {
     use: (...handlers: RequestHandler[] | any[]) => void;
-    get: (path: string, handler: RequestHandler) => Express;
-    post: (path: string, handler: RequestHandler) => Express;
+    get: (path: string, ...handlers: RequestHandler[]) => Express;
+    post: (path: string, ...handlers: RequestHandler[]) => Express;
     listen: (port: number, callback?: () => void) => any;
   }
 
   export interface JsonParser {
-    (): RequestHandler;
+    (options?: any): RequestHandler;
   }
 
   export interface ExpressModule {
