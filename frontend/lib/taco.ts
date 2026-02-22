@@ -1,4 +1,5 @@
 import { providers, Wallet } from "ethers";
+import { bytesToHex } from "./symmetricCrypto";
 
 import {
   DEFAULT_POLYGON_AMOY_RPC_URL,
@@ -318,7 +319,7 @@ export async function decryptWithTaco({
     domains.TESTNET?.porterUris
   );
 
-  return new TextDecoder().decode(decryptedBytes);
+  return `0x${bytesToHex(decryptedBytes)}`;
 }
 
 function encodePayload(data: string): Uint8Array {
