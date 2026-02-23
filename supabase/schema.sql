@@ -73,14 +73,14 @@ with contribution_weights as (
 )
 select
   pv.poolid,
-  count(*) filter (where pv.vote = 1) as upvotes,
-  count(*) filter (where pv.vote = -1) as downvotes,
-  coalesce(sum(cw.voteweight), 0) as votepower,
+  coalesce(sum(case when pv.vote = 1 then 1 else 0 end), 0) as upvotes,
+  coalesce(sum(case when pv.vote = -1 then 1 else 0 end), 0) as downvotes,
   coalesce(
     sum((pv.vote::numeric) * coalesce(cw.voteweight, 0)) / nullif(sum(coalesce(cw.voteweight, 0)), 0),
     0
   ) as avgrating,
-  coalesce(sum((pv.vote::numeric) * coalesce(cw.voteweight, 0)), 0) as score
+  coalesce(sum((pv.vote::numeric) * coalesce(cw.voteweight, 0)), 0) as score,
+  coalesce(sum(cw.voteweight), 0) as votepower
 from public.pool_votes pv
 left join contribution_weights cw
   on cw.poolid = pv.poolid
@@ -100,12 +100,12 @@ select
   p.investigator as vendoraddress,
   count(distinct p.id) as poolcount,
   count(pv.id) as totalvotes,
-  coalesce(sum(cw.voteweight), 0) as votepower,
   coalesce(
     sum((pv.vote::numeric) * coalesce(cw.voteweight, 0)) / nullif(sum(coalesce(cw.voteweight, 0)), 0),
     0
   ) as avgrating,
-  coalesce(sum((pv.vote::numeric) * coalesce(cw.voteweight, 0)), 0) as score
+  coalesce(sum((pv.vote::numeric) * coalesce(cw.voteweight, 0)), 0) as score,
+  coalesce(sum(cw.voteweight), 0) as votepower
 from public.pools p
 left join public.pool_votes pv on pv.poolid = p.id
 left join contribution_weights cw
