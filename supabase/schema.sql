@@ -63,24 +63,54 @@ create table if not exists public.user_profiles (
 );
 
 create or replace view public.pool_vote_stats as
+with contribution_weights as (
+  select
+    c.poolid,
+    lower(c.contributor) as voteraddress,
+    coalesce(sum((c.amount)::numeric), 0) as voteweight
+  from public.contributions c
+  group by c.poolid, lower(c.contributor)
+)
 select
   pv.poolid,
   count(*) filter (where pv.vote = 1) as upvotes,
   count(*) filter (where pv.vote = -1) as downvotes,
-  coalesce(avg(pv.vote::numeric), 0) as avgrating,
-  coalesce(sum(pv.vote), 0) as score
+  coalesce(sum(cw.voteweight), 0) as votepower,
+  coalesce(
+    sum((pv.vote::numeric) * coalesce(cw.voteweight, 0)) / nullif(sum(coalesce(cw.voteweight, 0)), 0),
+    0
+  ) as avgrating,
+  coalesce(sum((pv.vote::numeric) * coalesce(cw.voteweight, 0)), 0) as score
 from public.pool_votes pv
+left join contribution_weights cw
+  on cw.poolid = pv.poolid
+ and cw.voteraddress = lower(pv.voteraddress)
 group by pv.poolid;
 
 create or replace view public.vendor_rating_stats as
+with contribution_weights as (
+  select
+    c.poolid,
+    lower(c.contributor) as voteraddress,
+    coalesce(sum((c.amount)::numeric), 0) as voteweight
+  from public.contributions c
+  group by c.poolid, lower(c.contributor)
+)
 select
   p.investigator as vendoraddress,
   count(distinct p.id) as poolcount,
   count(pv.id) as totalvotes,
-  coalesce(avg(pv.vote::numeric), 0) as avgrating,
-  coalesce(sum(pv.vote), 0) as score
+  coalesce(sum(cw.voteweight), 0) as votepower,
+  coalesce(
+    sum((pv.vote::numeric) * coalesce(cw.voteweight, 0)) / nullif(sum(coalesce(cw.voteweight, 0)), 0),
+    0
+  ) as avgrating,
+  coalesce(sum((pv.vote::numeric) * coalesce(cw.voteweight, 0)), 0) as score
 from public.pools p
 left join public.pool_votes pv on pv.poolid = p.id
+left join contribution_weights cw
+  on cw.poolid = pv.poolid
+ and cw.voteraddress = lower(pv.voteraddress)
 group by p.investigator;
 
 create table if not exists public.pool_files (

@@ -53,7 +53,8 @@ router.get("/:address", async (req: Request, res: Response) => {
     contributedPools,
     vendorRating: {
       average: Number(ratingResult.data?.avgrating || 0),
-      score: Number(ratingResult.data?.score || 0),
+      score: String(ratingResult.data?.score || "0"),
+      totalVotePower: String(ratingResult.data?.votepower || "0"),
       totalVotes: Number(ratingResult.data?.totalvotes || 0),
       poolsCount: Number(ratingResult.data?.poolcount || 0)
     }

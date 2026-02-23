@@ -114,8 +114,7 @@ export default function ProfileContent({
               <span className="pill">{averageStars.toFixed(2)} / 5 stars</span>
             </div>
             <p className="muted" style={{ marginTop: 6 }}>
-              Rating {averageStars.toFixed(2)} / 5 • {profile.vendorRating.totalVotes} votes • Score {profile.vendorRating.score} •{" "}
-              {profile.createdPools.length} pools created
+              Rating {averageStars.toFixed(2)} / 5 - {profile.vendorRating.totalVotes} votes - Weighted score {profile.vendorRating.score} - Vote power {formatAmount(profile.vendorRating.totalVotePower)} {CURRENCY_SYMBOL} - {profile.createdPools.length} pools created
             </p>
             <div className="input-row" style={{ marginTop: 12 }}>
               <button
@@ -317,3 +316,4 @@ function PoolCard({ pool }: { pool: PoolSummary }) {
     </div>
   );
 }
+

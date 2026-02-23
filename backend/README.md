@@ -33,3 +33,4 @@ For production builds: `npm run build` then `npm start`.
 - Use `RPC_URL=http://127.0.0.1:8545` when working against a local Hardhat node.
 - `.env.example` ships with Polygon Amoy defaults and the shared demo TACo/deployer key. Override these values for any non-demo environment.
 - Health probe available at `/health`.
+- Seller/profile ratings are contribution-weighted: eligible contributor feedback is weighted by contributed amount.

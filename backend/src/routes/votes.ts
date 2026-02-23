@@ -21,12 +21,19 @@ router.get("/pools/:poolId", async (req: Request, res: Response) => {
     return res.status(404).json({ error: "Pool not found" });
   }
 
-  const votesResult = await supabase.from("pool_votes").select("voteraddress, vote").eq("poolid", poolId);
+  const [votesResult, contributionsResult] = await Promise.all([
+    supabase.from("pool_votes").select("voteraddress, vote").eq("poolid", poolId),
+    supabase.from("contributions").select("contributor, amount").eq("poolid", poolId)
+  ]);
   if (votesResult.error) {
     return res.status(500).json({ error: votesResult.error.message });
   }
+  if (contributionsResult.error) {
+    return res.status(500).json({ error: contributionsResult.error.message });
+  }
 
-  const summary = summarizeVotes(votesResult.data || []);
+  const votePowerByAddress = buildVotePowerMap(contributionsResult.data || []);
+  const summary = summarizeVotes(votesResult.data || [], votePowerByAddress);
   const voterParam = extractQueryString(req.query?.voter);
 
   let myVote: number | null = null;
@@ -99,12 +106,19 @@ router.post("/pools/:poolId", async (req: Request, res: Response) => {
     return res.status(500).json({ error: upsertResult.error.message });
   }
 
-  const votesResult = await supabase.from("pool_votes").select("voteraddress, vote").eq("poolid", poolId);
+  const [votesResult, contributionsResult] = await Promise.all([
+    supabase.from("pool_votes").select("voteraddress, vote").eq("poolid", poolId),
+    supabase.from("contributions").select("contributor, amount").eq("poolid", poolId)
+  ]);
   if (votesResult.error) {
     return res.status(500).json({ error: votesResult.error.message });
   }
+  if (contributionsResult.error) {
+    return res.status(500).json({ error: contributionsResult.error.message });
+  }
 
-  const summary = summarizeVotes(votesResult.data || []);
+  const votePowerByAddress = buildVotePowerMap(contributionsResult.data || []);
+  const summary = summarizeVotes(votesResult.data || [], votePowerByAddress);
   return res.json({
     poolId,
     ...summary,
@@ -119,26 +133,59 @@ function extractQueryString(value?: string | string[]) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function summarizeVotes(rows: any[]) {
+function summarizeVotes(rows: any[], votePowerByAddress: Map<string, bigint>) {
   let upvotes = 0;
   let downvotes = 0;
-  let score = 0;
+  let weightedScore = 0n;
+  let totalVotePower = 0n;
 
   for (const row of rows) {
     const vote = Number(row.vote || 0);
+    const address = String(row.voteraddress || "").toLowerCase();
+    const votePower = votePowerByAddress.get(address) || 0n;
     if (vote === 1) upvotes += 1;
     if (vote === -1) downvotes += 1;
-    score += vote;
+    if (vote === 1 || vote === -1) {
+      weightedScore += BigInt(vote) * votePower;
+      totalVotePower += votePower;
+    }
   }
 
   const totalVotes = upvotes + downvotes;
-  const average = totalVotes > 0 ? score / totalVotes : 0;
-  return { upvotes, downvotes, score, average, totalVotes };
+  let average = 0;
+  if (totalVotePower > 0n) {
+    const scoreNum = Number(weightedScore);
+    const votePowerNum = Number(totalVotePower);
+    if (Number.isFinite(scoreNum) && Number.isFinite(votePowerNum) && votePowerNum !== 0) {
+      average = scoreNum / votePowerNum;
+    } else {
+      average = weightedScore > 0n ? 1 : weightedScore < 0n ? -1 : 0;
+    }
+  }
+  return { upvotes, downvotes, score: weightedScore.toString(), average, totalVotes, totalVotePower: totalVotePower.toString() };
 }
 
 function getMyVote(rows: any[], voterAddress: string) {
   const match = rows.find((row) => String(row.voteraddress || "").toLowerCase() === voterAddress);
   return match ? Number(match.vote || 0) : null;
+}
+
+function buildVotePowerMap(rows: any[]) {
+  const votePowerByAddress = new Map<string, bigint>();
+  for (const row of rows) {
+    const address = String(row.contributor || "").toLowerCase();
+    if (!address) continue;
+    const amountRaw = String(row.amount || "0");
+    let amount = 0n;
+    try {
+      amount = BigInt(amountRaw);
+    } catch {
+      amount = 0n;
+    }
+    const current = votePowerByAddress.get(address) || 0n;
+    votePowerByAddress.set(address, current + amount);
+  }
+  return votePowerByAddress;
 }
 
 async function getCanDecrypt(poolAddress: string, contributor: string) {

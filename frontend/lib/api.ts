@@ -31,7 +31,8 @@ export interface ProfilePayload {
   contributedPools: PoolSummary[];
   vendorRating: {
     average: number;
-    score: number;
+    score: string;
+    totalVotePower: string;
     totalVotes: number;
     poolsCount: number;
   };
@@ -41,9 +42,10 @@ export interface PoolVoteSummary {
   poolId: string;
   upvotes: number;
   downvotes: number;
-  score: number;
+  score: string;
   average: number;
   totalVotes: number;
+  totalVotePower: string;
   myVote: number | null;
   canVote: boolean | null;
   reason: string | null;

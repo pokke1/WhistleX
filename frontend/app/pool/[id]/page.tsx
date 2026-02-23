@@ -345,7 +345,7 @@ export default function PoolDetailPage() {
         <p className="muted">
           Votes: {voteSummary?.upvotes || 0} up / {voteSummary?.downvotes || 0} down
           {" "}
-          ({(Math.max(0, Math.min(5, poolAverage))).toFixed(2)} / 5 stars)
+          ({(Math.max(0, Math.min(5, poolAverage))).toFixed(2)} / 5 weighted stars, vote power {formatAmount(voteSummary?.totalVotePower || "0")} {CURRENCY_SYMBOL})
         </p>
         <div className="input-row">
           <button
