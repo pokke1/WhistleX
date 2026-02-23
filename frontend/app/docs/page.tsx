@@ -143,7 +143,7 @@ export default function DocsPage() {
           <section id="profiles" className="panel space-y-2">
             <h2 className="section-title">Profiles & Reputation</h2>
             <p className="muted">
-              Every whistleblower has a profile page with a marketplace rating derived from community votes and feedback. Buyers can
+              Every whistleblower has a profile page with a marketplace rating derived from contributor feedback weighted by each voter&apos;s contribution amount. Buyers can
               evaluate track record, see contributed/created pools, and make informed decisions before funding a pool. Visit a
               <Link href="/profile"> Profile</Link> to explore ratings and history.
             </p>
