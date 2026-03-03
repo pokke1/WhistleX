@@ -15,7 +15,7 @@ import {
   type PoolVoteSummary
 } from "../../../lib/api";
 import { describePolicy } from "../../../lib/tacoClient";
-import { fetchPoolState, type PoolOnchainState } from "../../../lib/onchain";
+import { contributeToPool, fetchPoolState, type PoolOnchainState } from "../../../lib/onchain";
 import { getAddressExplorerUrl, getTxExplorerUrl } from "../../../lib/explorer";
 import { parsePolymarketReference } from "../../../lib/polymarketRef";
 import { utils } from "ethers";
@@ -69,6 +69,9 @@ export default function PoolDetailPage() {
   const [commentInput, setCommentInput] = useState("");
   const [commentStatus, setCommentStatus] = useState<string | null>(null);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [contributionInput, setContributionInput] = useState("");
+  const [isContributing, setIsContributing] = useState(false);
+  const [contributeStatus, setContributeStatus] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewType, setPreviewType] = useState<"image" | "pdf" | null>(null);
   const [resolvedPolymarketUrl, setResolvedPolymarketUrl] = useState<string | null>(null);
@@ -107,20 +110,24 @@ export default function PoolDetailPage() {
   }, [poolId]);
 
   useEffect(() => {
-    if (!poolId || !walletAddress) {
-      setCanDecrypt(null);
-      return;
-    }
-    fetchPoolState(poolId, walletAddress)
+    if (!poolId) return;
+    fetchPoolState(poolId, walletAddress || undefined)
       .then((state) => {
         setOnchainState(state);
-        setCanDecrypt(Boolean(state.canDecrypt));
+        setCanDecrypt(walletAddress ? Boolean(state.canDecrypt) : null);
       })
       .catch(() => {
         setCanDecrypt(null);
         setOnchainState(null);
       });
   }, [poolId, walletAddress]);
+
+  async function refreshPoolState() {
+    if (!poolId) return;
+    const state = await fetchPoolState(poolId, walletAddress || undefined);
+    setOnchainState(state);
+    setCanDecrypt(walletAddress ? Boolean(state.canDecrypt) : null);
+  }
 
   useEffect(() => {
     if (!pool) {
@@ -227,6 +234,31 @@ export default function PoolDetailPage() {
     }
   }
 
+  async function ensureWalletAddress() {
+    if (walletAddress) return walletAddress;
+    const account = await connectWallet();
+    if (!account) throw new Error("No account authorized in wallet");
+    return account;
+  }
+
+  async function handleContribute() {
+    if (!pool) return;
+    try {
+      setContributeStatus(null);
+      setIsContributing(true);
+      await ensureWalletAddress();
+      const { txHash } = await contributeToPool(pool.id, contributionInput || "0");
+      setContributeStatus(`Contribution sent. Tx ${txHash}`);
+      setContributionInput("");
+      await refreshPoolState();
+      await loadContributors();
+    } catch (err: any) {
+      setContributeStatus(err?.message || "Failed to contribute");
+    } finally {
+      setIsContributing(false);
+    }
+  }
+
   const poolAverage = voteSummary ? ((voteSummary.average + 1) / 2) * 5 : 0;
   const isOwnPool = Boolean(walletAddress && pool && walletAddress.toLowerCase() === pool.investigator.toLowerCase());
   const uiCanVote = Boolean(walletAddress && !isOwnPool && canDecrypt);
@@ -244,6 +276,10 @@ export default function PoolDetailPage() {
     thresholdValue > 0 && Number.isFinite(minContributionValue)
       ? Math.min(100, Math.max(0, (minContributionValue / thresholdValue) * 100))
       : 0;
+  const deadlineTimestamp = onchainState?.deadline ? Number(onchainState.deadline) * 1000 : undefined;
+  const deadlinePassed = deadlineTimestamp ? Date.now() > deadlineTimestamp : false;
+  const thresholdMet = Boolean(onchainState?.unlocked);
+  const contributionClosed = deadlinePassed || thresholdMet;
 
   if (error) return <main className="app-shell">{error}</main>;
   if (!pool) return <main className="app-shell">Loading...</main>;
@@ -296,10 +332,45 @@ export default function PoolDetailPage() {
               <div className="progress-marker" style={{ left: `${minContributionPercent}%` }} />
             </div>
             <div className="progress-meta">
-              <span className="stat">Raised: {formatAmount(onchainState.totalContributions)} {CURRENCY_SYMBOL}</span>
-              <span className="stat">Threshold: {formatAmount(onchainState.threshold)} {CURRENCY_SYMBOL}</span>
-              <span className="stat">Decrypt floor: {formatAmount(onchainState.minContributionForDecrypt)} {CURRENCY_SYMBOL}</span>
+              <span className="stat">Current: {formatAmount(onchainState.totalContributions)} {CURRENCY_SYMBOL}</span>
+              <span className="stat">Min: {formatAmount(onchainState.minContributionForDecrypt)} {CURRENCY_SYMBOL}</span>
+              <span className="stat">Unlock: {formatAmount(onchainState.threshold)} {CURRENCY_SYMBOL}</span>
             </div>
+          </div>
+        )}
+        {onchainState && (
+          <div className="pool-detail-contribute">
+            <div className="input-row pool-detail-contribute-row">
+              <input
+                className="input"
+                placeholder={`Amount (${CURRENCY_SYMBOL})`}
+                type="number"
+                min="0"
+                step="1"
+                value={contributionInput}
+                onChange={(event) => setContributionInput(event.target.value)}
+              />
+              <button
+                className="button cta"
+                type="button"
+                disabled={isContributing || !contributionInput || contributionClosed}
+                onClick={handleContribute}
+              >
+                {thresholdMet ? "Pool unlocked" : deadlinePassed ? "Deadline passed" : "Contribute"}
+              </button>
+            </div>
+            <div
+              className={`pool-detail-eligibility ${
+                canDecrypt ? "pool-detail-eligibility-ok" : "pool-detail-eligibility-warn"
+              }`}
+            >
+              {walletAddress
+                ? canDecrypt
+                  ? "Eligible to decrypt once the pool unlocks."
+                  : "Your contribution is below the decrypt floor. Contribute to unlock access."
+                : "Connect wallet to check your decrypt eligibility."}
+            </div>
+            {contributeStatus && <p className="muted">{contributeStatus}</p>}
           </div>
         )}
         <p className="muted">
@@ -324,9 +395,9 @@ export default function PoolDetailPage() {
               <div className="progress-marker" style={{ left: `${minContributionPercent}%` }} />
             </div>
             <div className="progress-meta">
-              <span className="stat">Raised: {formatAmount(onchainState.totalContributions)} {CURRENCY_SYMBOL}</span>
-              <span className="stat">Threshold: {formatAmount(onchainState.threshold)} {CURRENCY_SYMBOL}</span>
-              <span className="stat">Decrypt floor: {formatAmount(onchainState.minContributionForDecrypt)} {CURRENCY_SYMBOL}</span>
+              <span className="stat">Current: {formatAmount(onchainState.totalContributions)} {CURRENCY_SYMBOL}</span>
+              <span className="stat">Min: {formatAmount(onchainState.minContributionForDecrypt)} {CURRENCY_SYMBOL}</span>
+              <span className="stat">Unlock: {formatAmount(onchainState.threshold)} {CURRENCY_SYMBOL}</span>
             </div>
           </div>
         )}

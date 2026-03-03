@@ -701,6 +701,7 @@ export default function HomePage() {
             )}
           </div>
           <div className="pool-card-header-right">
+            <span className="tag mobile-only">{statusLabel}</span>
             {!isClosed && (
               <>
                 <span className="pill deadline-pill">Deadline: {deadlineLabel}</span>
@@ -739,7 +740,11 @@ export default function HomePage() {
         >
           <p className="muted">Pool</p>
           <h3>{pool.title || pool.id}</h3>
-          {polymarketRef.cleanDescription && <p className="muted" style={{ marginTop: 4 }}>{polymarketRef.cleanDescription}</p>}
+          {polymarketRef.cleanDescription && (
+            <p className="muted pool-card-description" style={{ marginTop: 4 }}>
+              {polymarketRef.cleanDescription}
+            </p>
+          )}
           {polymarketRef.marketUrl && (
             <p className="muted" style={{ marginTop: 4 }}>
               <a href={polymarketRef.marketUrl} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>
@@ -750,32 +755,35 @@ export default function HomePage() {
           {!pool.title && <p className="muted" style={{ fontSize: 12 }}>{pool.id}</p>}
           {pool.attachments && pool.attachments.length > 0 && (
             <div
-              className="pool-attachments"
+              className="pool-documents"
               onClick={(event) => event.stopPropagation()}
               onMouseDown={(event) => event.stopPropagation()}
             >
-              {pool.attachments.slice(0, 3).map((file) => (
-                <button
-                  key={file.id || file.publicUrl}
-                  type="button"
-                  className="attachment-thumb"
-                  onClick={() => {
-                    if (file.mimeType.startsWith("image/")) {
-                      setPreviewUrl(file.publicUrl);
-                      setPreviewType("image");
-                    } else {
-                      setPreviewUrl(file.publicUrl);
-                      setPreviewType("pdf");
-                    }
-                  }}
-                >
-                  {file.mimeType.startsWith("image/") ? (
-                    <img src={file.publicUrl} alt="Attachment preview" />
-                  ) : (
-                    <span className="attachment-pdf">PDF</span>
-                  )}
-                </button>
-              ))}
+              <p className="muted pool-documents-label">Documents ({pool.attachments.length})</p>
+              <div className="pool-attachments">
+                {pool.attachments.slice(0, 3).map((file) => (
+                  <button
+                    key={file.id || file.publicUrl}
+                    type="button"
+                    className="attachment-thumb"
+                    onClick={() => {
+                      if (file.mimeType.startsWith("image/")) {
+                        setPreviewUrl(file.publicUrl);
+                        setPreviewType("image");
+                      } else {
+                        setPreviewUrl(file.publicUrl);
+                        setPreviewType("pdf");
+                      }
+                    }}
+                  >
+                    {file.mimeType.startsWith("image/") ? (
+                      <img src={file.publicUrl} alt="Attachment preview" />
+                    ) : (
+                      <span className="attachment-pdf">PDF</span>
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
           <div className="pool-card-footer desktop-only">
@@ -793,9 +801,9 @@ export default function HomePage() {
         </div>
 
         <div className="progress-meta">
-          <span className="stat">Raised: {raisedDisplay} {CURRENCY_SYMBOL}</span>
-          <span className="stat">Threshold: {thresholdDisplay} {CURRENCY_SYMBOL}</span>
-          <span className="stat">Decrypt floor: {minContributionDisplay} {CURRENCY_SYMBOL}</span>
+          <span className="stat">Current: {raisedDisplay} {CURRENCY_SYMBOL}</span>
+          <span className="stat">Min: {minContributionDisplay} {CURRENCY_SYMBOL}</span>
+          <span className="stat">Unlock: {thresholdDisplay} {CURRENCY_SYMBOL}</span>
         </div>
 
         <p className="muted">
@@ -836,7 +844,7 @@ export default function HomePage() {
         )}
 
         <div
-          className="input-row"
+          className="input-row pool-card-action-row"
           onClick={(event) => event.stopPropagation()}
           onMouseDown={(event) => event.stopPropagation()}
         >
