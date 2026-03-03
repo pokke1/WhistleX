@@ -416,24 +416,6 @@ a {
   font-size: 12px;
 }
 
-.pool-documents {
-  display: grid;
-  gap: 6px;
-}
-
-.pool-documents-label {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 10px;
-}
-
-.pool-card-description {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
 .pool-title-row {
   display: flex;
   align-items: center;
@@ -729,41 +711,6 @@ input[type="number"] {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;
-}
-
-.pool-detail-contribute {
-  display: grid;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.pool-detail-contribute-row {
-  align-items: stretch;
-}
-
-.pool-detail-contribute-row .input {
-  min-width: 180px;
-}
-
-.pool-detail-eligibility {
-  border-radius: 10px;
-  padding: 8px 10px;
-  font-size: 12px;
-  border: 1px solid transparent;
-  background: rgba(154, 165, 181, 0.12);
-  color: var(--muted);
-}
-
-.pool-detail-eligibility-ok {
-  background: rgba(90, 212, 172, 0.14);
-  border-color: rgba(90, 212, 172, 0.4);
-  color: var(--success);
-}
-
-.pool-detail-eligibility-warn {
-  background: rgba(255, 159, 77, 0.14);
-  border-color: rgba(255, 159, 77, 0.4);
-  color: var(--warn);
 }
 
 .cta {
@@ -1206,47 +1153,16 @@ input[type="number"] {
   }
 
   .pool-card {
-    width: min(86vw, 360px);
-    aspect-ratio: 1 / 1.618;
+    width: 260px;
     padding: 12px;
     border-radius: 14px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-  }
-
-  .pool-card-header {
-    justify-content: flex-end;
-  }
-
-  .pool-card-header-left {
-    display: none;
-  }
-
-  .pool-card-header-right {
-    justify-items: end;
-    gap: 4px;
-  }
-
-  .pool-card-header .pill,
-  .pool-card-header .tag,
-  .pool-card-header .investigator-toggle {
-    font-size: 10px;
-    padding: 3px 6px;
-    max-width: 100%;
-    text-align: right;
-  }
-
-  .pool-card .pool-card-body {
-    display: grid;
-    grid-template-rows: auto auto auto auto 1fr auto;
     gap: 6px;
   }
 
   .pool-card .progress-meta {
-    margin-top: 2px;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 6px;
+    margin-top: 4px;
   }
 
   .pool-card .stat-row {
@@ -1259,7 +1175,7 @@ input[type="number"] {
   }
 
   .pool-card-body h3 {
-    font-size: 15px;
+    font-size: 14px;
     line-height: 1.2;
   }
 
@@ -1268,14 +1184,13 @@ input[type="number"] {
   }
 
   .progress-meta {
-    align-items: stretch;
+    flex-direction: column;
+    align-items: flex-start;
     gap: 4px;
   }
 
   .progress-meta .stat {
-    font-size: 10px;
-    padding: 6px 8px;
-    text-align: center;
+    font-size: 11px;
   }
 
   .pool-card .policy-line,
@@ -1284,9 +1199,29 @@ input[type="number"] {
     display: none;
   }
 
-  .pool-card .pool-card-action-row,
-  .pool-card .decrypt-fold-wrap {
-    display: none !important;
+  .pool-card .input-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    margin-top: auto;
+    align-items: stretch;
+    justify-items: stretch;
+  }
+
+  .pool-card .input-row .input {
+    grid-column: 1 / -1;
+  }
+
+  .pool-card .input-row .button.cta {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .pool-card-header .pill,
+  .pool-card-header .tag,
+  .pool-card-header .investigator-toggle {
+    font-size: 10px;
+    padding: 3px 6px;
   }
 
   .pool-status-wrap {
@@ -1307,6 +1242,11 @@ input[type="number"] {
 
   .pool-status-toggle {
     width: fit-content;
+  }
+
+  .decrypt-fold-wrap,
+  .decrypt-fold {
+    display: block;
   }
 
   .whistle-filters {
