@@ -24,11 +24,11 @@ jobs:
           const fs=require("fs");
           const report=JSON.parse(fs.readFileSync("audit.json","utf8"));
           const allow=new Set([
-            "GHSA-848j-6mx2-7j84", // elliptic via ethers v5 chain
-            "GHSA-9g9p-9gw9-jx7f", // next.js advisory (upgrade tracked separately)
-            "GHSA-h25m-26qc-wcjf",
-            "GHSA-ggv3-7p47-pfv8",
-            "GHSA-3x4c-7xq6-9pq8"
+            "GHSA-848J-6MX2-7J84", // elliptic via ethers v5 chain
+            "GHSA-9G9P-9GW9-JX7F", // next.js advisory (upgrade tracked separately)
+            "GHSA-H25M-26QC-WCJF",
+            "GHSA-GGV3-7P47-PFV8",
+            "GHSA-3X4C-7XQ6-9PQ8"
           ]);
           const bad=[];
           const vulns=report.vulnerabilities||{};
