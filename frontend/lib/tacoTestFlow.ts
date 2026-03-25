@@ -1,5 +1,5 @@
 import { Contract, providers, utils, Wallet, BigNumber } from "ethers";
-import { encryptWithTaco, decryptWithTaco, DEFAULT_TACO_PRIVATE_KEY } from "./taco";
+import { encryptWithTaco, decryptWithTaco } from "./taco";
 
 
 const factoryAbi = [
@@ -27,10 +27,7 @@ export interface TacoTestResult {
 }
 
 function resolveDeveloperKey() {
-  return (
-    process.env.NEXT_PUBLIC_DEVELOPER_KEY ||
-    DEFAULT_TACO_PRIVATE_KEY
-  );
+  return process.env.DEVELOPER_KEY || process.env.AMOY_DEPLOYER_KEY;
 }
 
 export async function runTacoTestFlow(): Promise<TacoTestResult> {

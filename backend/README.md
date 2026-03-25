@@ -31,6 +31,6 @@ For production builds: `npm run build` then `npm start`.
 
 - The indexer starts only when `FACTORY_ADDRESS` is set; otherwise the API still serves the upload routes.
 - Use `RPC_URL=http://127.0.0.1:8545` when working against a local Hardhat node.
-- `.env.example` ships with Polygon Amoy defaults and the shared demo TACo/deployer key. Override these values for any non-demo environment.
+- `.env.example` ships with public network defaults only. Keep deployer keys and service secrets in local/hosted secret stores, never in the repo.
 - Health probe available at `/health`.
 - Seller/profile ratings are contribution-weighted: eligible contributor feedback is weighted by contributed amount.

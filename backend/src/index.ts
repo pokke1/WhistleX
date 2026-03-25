@@ -1,11 +1,15 @@
 import express, { Request, Response } from "express";
 import morgan from "morgan";
 import dotenv from "dotenv";
+import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import poolsRouter from "./routes/pools.js";
 import intelRouter from "./routes/intel.js";
 import profilesRouter from "./routes/profiles.js";
 import votesRouter from "./routes/votes.js";
 import polymarketRouter from "./routes/polymarket.js";
+import authRouter from "./routes/auth.js";
 import { startIndexer } from "./services/indexer.js";
 
 dotenv.config();
@@ -13,23 +17,60 @@ dotenv.config();
 console.log("Starting backend server...");
 
 const app = express();
-app.use(express.json({ limit: "25mb" }));
+app.use(express.json({ limit: "10mb" }));
 app.use(morgan("dev"));
+app.use(helmet());
 
-// Lightweight CORS handler so the Next.js frontend (localhost:3000) can call the API
-const allowedOrigin = process.env.FRONTEND_ORIGIN || "*";
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  if (req.method === "OPTIONS") {
-    res.sendStatus(204);
-    return;
-  }
-  if (next) next();
-});
+const configuredOrigins = (process.env.FRONTEND_ORIGIN || "")
+  .split(",")
+  .map((v) => v.trim())
+  .filter(Boolean);
+
+if (configuredOrigins.length === 0 && process.env.NODE_ENV === "production") {
+  throw new Error("FRONTEND_ORIGIN is required in production");
+}
+
+const corsOptions = {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    if (!origin) return callback(null, true);
+    if (configuredOrigins.length === 0 && process.env.NODE_ENV !== "production") {
+      return callback(null, true);
+    }
+    if (configuredOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error("CORS blocked"));
+  },
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+};
+app.use(cors(corsOptions));
+
+const defaultWindowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000);
+const defaultMax = Number(process.env.RATE_LIMIT_MAX || 120);
+const rpcMax = Number(process.env.RPC_RATE_LIMIT_MAX || 30);
+
+app.use(
+  rateLimit({
+    windowMs: defaultWindowMs,
+    max: defaultMax,
+    standardHeaders: true,
+    legacyHeaders: false
+  })
+);
+
+app.use(
+  "/rpc",
+  rateLimit({
+    windowMs: defaultWindowMs,
+    max: rpcMax,
+    standardHeaders: true,
+    legacyHeaders: false
+  })
+);
 
 app.get("/health", (_req: Request, res: Response) => res.json({ status: "ok" }));
+
 app.post("/rpc", async (req: Request, res: Response) => {
   const rpcUrl = process.env.AMOY_RPC_URL || process.env.RPC_URL;
   if (!rpcUrl) {
@@ -48,6 +89,8 @@ app.post("/rpc", async (req: Request, res: Response) => {
     res.status(502).json({ error: error?.message || "RPC proxy failed" });
   }
 });
+
+app.use("/auth", authRouter);
 app.use("/pools", poolsRouter);
 app.use("/intel", intelRouter);
 app.use("/profiles", profilesRouter);

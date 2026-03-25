@@ -1,11 +1,17 @@
 import express, { Request, Response } from "express";
+import { z } from "zod";
 import { ethers } from "ethers";
 import { supabase } from "../db/supabase.js";
+import { requireAuth } from "../middleware/requireAuth.js";
 
 const DEFAULT_POLYGON_AMOY_RPC_URL = "https://polygon-amoy.drpc.org";
 const poolAbi = ["function canDecrypt(address contributor) view returns (bool)"];
 
 const router = express.Router();
+
+const votePayloadSchema = z.object({
+  vote: z.union([z.literal(1), z.literal(-1)])
+});
 
 router.get("/pools/:poolId", async (req: Request, res: Response) => {
   const poolId = req.params?.poolId;
@@ -64,17 +70,19 @@ router.get("/pools/:poolId", async (req: Request, res: Response) => {
   });
 });
 
-router.post("/pools/:poolId", async (req: Request, res: Response) => {
-  const poolId = req.params?.poolId;
-  const voterAddressRaw = req.body?.voterAddress;
-  const voteRaw = req.body?.vote;
+router.post("/pools/:poolId", requireAuth, async (req: Request, res: Response) => {
+  const poolId = String(req.params?.poolId || "").trim();
+  const parsed = votePayloadSchema.safeParse(req.body || {});
 
-  if (!poolId || !voterAddressRaw || (voteRaw !== 1 && voteRaw !== -1)) {
-    return res.status(400).json({ error: "poolId, voterAddress and vote (-1 or 1) are required" });
+  if (!poolId || !parsed.success) {
+    return res.status(400).json({ error: "poolId and vote (-1 or 1) are required" });
   }
 
-  const voterAddress = String(voterAddressRaw).toLowerCase();
-  const vote = Number(voteRaw);
+  const voterAddress = String(req.auth?.address || "").toLowerCase();
+  if (!voterAddress) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
+  const vote = parsed.data.vote;
 
   const poolResult = await supabase.from("pools").select("id, investigator").eq("id", poolId).maybeSingle();
   if (poolResult.error) {

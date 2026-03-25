@@ -10,12 +10,20 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.2",
+    "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "ethers": "^6.13.1",
     "express": "^4.19.2",
-    "morgan": "^1.10.0"
+    "express-rate-limit": "^7.4.1",
+    "file-type": "^21.3.4",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/jsonwebtoken": "^9.0.6",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   }

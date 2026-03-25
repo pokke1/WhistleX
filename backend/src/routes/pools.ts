@@ -1,9 +1,33 @@
 import express, { Request, Response } from "express";
+import { z } from "zod";
+import { fileTypeFromBuffer } from "file-type";
 import { supabase } from "../db/supabase.js";
 import { buildCanonicalPolicy } from "../services/tacoPolicy.js";
 import { getCachedPoolState } from "../services/poolStateCache.js";
+import { requireAuth } from "../middleware/requireAuth.js";
 
 const router = express.Router();
+
+const createPoolSchema = z.object({
+  id: z.string().min(1),
+  threshold: z.string().min(1),
+  minContributionForDecrypt: z.string().min(1),
+  deadline: z.string().min(1),
+  ciphertext: z.string().min(1),
+  title: z.string().optional(),
+  description: z.string().optional()
+});
+
+const postCommentSchema = z.object({
+  message: z.string().trim().min(1).max(5000)
+});
+
+const uploadFileSchema = z.object({
+  name: z.string().min(1).max(255),
+  type: z.string().min(1).max(120),
+  size: z.number().positive(),
+  data: z.string().min(1)
+});
 
 router.get("/", async (_req: Request, res: Response) => {
   const { data, error } = await supabase.from("pools").select("*");
@@ -169,16 +193,17 @@ router.get("/:poolId/comments", async (req: Request, res: Response) => {
   return res.json({ poolId, comments: data || [] });
 });
 
-router.post("/:poolId/comments", async (req: Request, res: Response) => {
-  const poolId = req.params?.poolId;
-  const author = String(req.body?.author || "").trim();
-  const message = String(req.body?.message || "").trim();
+router.post("/:poolId/comments", requireAuth, async (req: Request, res: Response) => {
+  const poolId = String(req.params?.poolId || "").trim();
+  const author = String(req.auth?.address || "").trim().toLowerCase();
+  const parsed = postCommentSchema.safeParse(req.body || {});
   if (!poolId) {
     return res.status(400).json({ error: "poolId is required" });
   }
-  if (!author || !message) {
+  if (!author || !parsed.success) {
     return res.status(400).json({ error: "author and message are required" });
   }
+  const { message } = parsed.data;
 
   const { error } = await supabase.from("pool_comments").insert({
     poolid: poolId,
@@ -192,13 +217,15 @@ router.post("/:poolId/comments", async (req: Request, res: Response) => {
   return res.json({ ok: true });
 });
 
-router.post("/", async (req: Request, res: Response) => {
-  const { id, investigator, threshold, minContributionForDecrypt, deadline, ciphertext, title, description } = req.body;
-  if (!id || !investigator || !threshold || !minContributionForDecrypt || !deadline || !ciphertext) {
+router.post("/", requireAuth, async (req: Request, res: Response) => {
+  const parsed = createPoolSchema.safeParse(req.body || {});
+  const investigator = String(req.auth?.address || "").toLowerCase();
+  if (!parsed.success || !investigator) {
     return res
       .status(400)
-      .json({ error: "id, investigator, threshold, minContributionForDecrypt, deadline, ciphertext are required" });
+      .json({ error: "id, threshold, minContributionForDecrypt, deadline, ciphertext are required" });
   }
+  const { id, threshold, minContributionForDecrypt, deadline, ciphertext, title, description } = parsed.data;
 
   const policy = buildCanonicalPolicy(id, minContributionForDecrypt);
   const { error } = await supabase
@@ -224,7 +251,7 @@ router.post("/", async (req: Request, res: Response) => {
   return res.json({ id, investigator, threshold, minContributionForDecrypt, deadline, ciphertext, policy, title, description });
 });
 
-router.post("/:poolId/files", async (req: Request, res: Response) => {
+router.post("/:poolId/files", requireAuth, async (req: Request, res: Response) => {
   const poolId = req.params?.poolId;
   if (!poolId) {
     return res.status(400).json({ error: "poolId is required" });
@@ -242,25 +269,24 @@ router.post("/:poolId/files", async (req: Request, res: Response) => {
     return res.status(404).json({ error: "pool not found" });
   }
 
-  const files = Array.isArray(req.body?.files) ? req.body.files : [];
+  const filesRaw = Array.isArray(req.body?.files) ? req.body.files : [];
   const MAX_FILES = 3;
   const MAX_BYTES = 5 * 1024 * 1024;
-  if (files.length === 0) {
+  if (filesRaw.length === 0) {
     return res.status(400).json({ error: "files are required" });
   }
-  if (files.length > MAX_FILES) {
+  if (filesRaw.length > MAX_FILES) {
     return res.status(400).json({ error: "too many files (max 3)" });
   }
 
   const attachments = [];
-  for (const file of files) {
-    const name = String(file?.name || "attachment");
-    const type = String(file?.type || "");
-    const size = Number(file?.size || 0);
-    const data = String(file?.data || "");
-    if (!data) {
-      return res.status(400).json({ error: "file data missing" });
+  for (const rawFile of filesRaw) {
+    const parsed = uploadFileSchema.safeParse(rawFile || {});
+    if (!parsed.success) {
+      return res.status(400).json({ error: "invalid file payload" });
     }
+
+    const { name, type, size, data } = parsed.data;
     if (!(type.startsWith("image/") || type === "application/pdf")) {
       return res.status(400).json({ error: `unsupported file type: ${type}` });
     }
@@ -269,14 +295,20 @@ router.post("/:poolId/files", async (req: Request, res: Response) => {
     }
 
     const buffer = Buffer.from(data, "base64");
-    if (buffer.length > MAX_BYTES) {
+    if (buffer.length === 0 || buffer.length > MAX_BYTES) {
       return res.status(400).json({ error: "file size exceeds 5MB limit" });
+    }
+
+    const detected = await fileTypeFromBuffer(buffer);
+    const detectedMime = detected?.mime || (type === "application/pdf" ? "application/pdf" : "");
+    if (!(detectedMime.startsWith("image/") || detectedMime === "application/pdf")) {
+      return res.status(400).json({ error: "file content type is not allowed" });
     }
 
     const safeName = name.replace(/[^a-zA-Z0-9._-]/g, "_");
     const path = `${poolId}/${Date.now()}-${safeName}`;
     const uploadResult = await supabase.storage.from("pool-attachments").upload(path, buffer, {
-      contentType: type,
+      contentType: detectedMime || type,
       upsert: false
     });
     if (uploadResult.error) {
@@ -288,7 +320,7 @@ router.post("/:poolId/files", async (req: Request, res: Response) => {
       poolid: poolId,
       path,
       public_url: publicUrl,
-      mime_type: type,
+      mime_type: detectedMime || type,
       size_bytes: buffer.length
     });
     if (insertResult.error) {
@@ -298,7 +330,7 @@ router.post("/:poolId/files", async (req: Request, res: Response) => {
     attachments.push({
       path,
       publicUrl,
-      mimeType: type,
+      mimeType: detectedMime || type,
       sizeBytes: buffer.length
     });
   }

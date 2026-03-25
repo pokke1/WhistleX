@@ -5,7 +5,9 @@ declare module "express" {
     body?: any;
     params?: Record<string, string>;
     query?: Record<string, string | string[]>;
+    headers?: Record<string, string | string[] | undefined>;
     method?: string;
+    auth?: { address: string };
   }
 
   export interface Response {
@@ -27,19 +29,23 @@ declare module "express" {
   }
 
   export interface Router {
-    get: (path: string, handler: RequestHandler) => Router;
-    post: (path: string, handler: RequestHandler) => Router;
+    get: (path: string, ...handlers: RequestHandler[]) => Router;
+    post: (path: string, ...handlers: RequestHandler[]) => Router;
+    put: (path: string, ...handlers: RequestHandler[]) => Router;
+    patch: (path: string, ...handlers: RequestHandler[]) => Router;
+    delete: (path: string, ...handlers: RequestHandler[]) => Router;
+    use: (...handlers: RequestHandler[] | any[]) => Router;
   }
 
   export interface Express {
     use: (...handlers: RequestHandler[] | any[]) => void;
-    get: (path: string, handler: RequestHandler) => Express;
-    post: (path: string, handler: RequestHandler) => Express;
+    get: (path: string, ...handlers: RequestHandler[]) => Express;
+    post: (path: string, ...handlers: RequestHandler[]) => Express;
     listen: (port: number, callback?: () => void) => any;
   }
 
   export interface JsonParser {
-    (): RequestHandler;
+    (options?: any): RequestHandler;
   }
 
   export interface ExpressModule {

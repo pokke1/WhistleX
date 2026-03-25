@@ -70,13 +70,13 @@ The app will be available at `http://localhost:3000` against the local contracts
 
 ## Polygon Amoy test flow
 
-A demo Polygon Amoy RPC and private key live in `shared/testnet.ts` and the `.env.example` files. For quick TACo testing:
+For quick TACo testing:
 
-1) Set deployer env vars (override with your own funded key for real use)
+1) Set deployer env vars with your own funded key (never commit private keys)
 
 ```sh
 export AMOY_RPC_URL=https://polygon-amoy.drpc.org
-export DEPLOYER_KEY=0x87689923f91e01933abee394cf3ff28c2f14d864ee58b08a347c5ecce880d23a
+export DEPLOYER_KEY=<your-private-key>
 ```
 
 2) Deploy the factory and initial pool
@@ -100,7 +100,8 @@ npm run deploy:amoy        # deploys IntelPoolFactory bound to MockUSDC and an i
 - `NEXT_PUBLIC_BACKEND_URL` set to your backend URL
 - `NEXT_PUBLIC_FACTORY_ADDRESS` set to the same factory address
 - `NEXT_PUBLIC_USDC_ADDRESS` set to the MockUSDC address
-- Keep or override the TACo RPC/key values already present in `frontend/.env.example`
+- Keep or override TACo RPC values in `frontend/.env.example`
+- If a private key is needed for local test flows, set it only in local shell env (`DEVELOPER_KEY`) and never under `NEXT_PUBLIC_*`
 
 ## TACo access rule
 

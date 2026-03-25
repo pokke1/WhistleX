@@ -1,0 +1,146 @@
+name: Security Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 20
+
+      - name: Frontend audit (high+ with explicit temporary allowlist)
+        run: |
+          cd frontend
+          npm ci
+          npm audit --omit=dev --json > audit.json || true
+          node -e '
+          const fs=require("fs");
+          const report=JSON.parse(fs.readFileSync("audit.json","utf8"));
+          const allow=new Set([
+            "GHSA-848J-6MX2-7J84", // elliptic via ethers v5 chain
+            "GHSA-9G9P-9GW9-JX7F", // next.js advisory (upgrade tracked separately)
+            "GHSA-H25M-26QC-WCJF",
+            "GHSA-GGV3-7P47-PFV8",
+            "GHSA-3X4C-7XQ6-9PQ8"
+          ]);
+          const bad=[];
+          const vulns=report.vulnerabilities||{};
+          const sevOk=new Set(["high","critical"]);
+          const ghsaFrom=(v)=>{
+            if(typeof v==="string" && v.startsWith("GHSA-")) return v;
+            if(v && typeof v==="object"){
+              if(typeof v.url==="string"){
+                const m=v.url.match(/GHSA-[a-z0-9-]+/i); if(m) return m[0].toUpperCase();
+              }
+              if(typeof v.source==="number" && v.name) return `${v.name}:${v.source}`;
+            }
+            return null;
+          };
+          for(const [pkg,info] of Object.entries(vulns)){
+            const sev=String(info.severity||"").toLowerCase();
+            if(!sevOk.has(sev)) continue;
+            const via=Array.isArray(info.via)?info.via:[];
+            let allAllowed=true;
+            const refs=[];
+            for(const item of via){
+              const id=ghsaFrom(item);
+              if(id){refs.push(id); if(!allow.has(id)) allAllowed=false;}
+              else if(typeof item==="string"){refs.push(item); allAllowed=false;}
+              else {allAllowed=false;}
+            }
+            if(!allAllowed){ bad.push({pkg,sev,refs}); }
+          }
+          if(bad.length){
+            console.error("Unallowlisted frontend high/critical vulnerabilities detected:");
+            for(const b of bad) console.error(`- ${b.pkg} (${b.sev}) refs=${b.refs.join(",")}`);
+            process.exit(1);
+          }
+          console.log("Frontend audit passed (only allowlisted high findings present, if any).");
+          '
+
+      - name: Backend audit (fail on high+)
+        run: |
+          cd backend
+          npm ci
+          npm audit --omit=dev --audit-level=high
+
+      - name: Contracts audit (fail on high+)
+        run: |
+          cd contracts
+          npm ci
+          npm audit --omit=dev --audit-level=high
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+      - name: Gitleaks scan
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  semgrep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: auto
+
+  trivy-fs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: Install Trivy CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install -y trivy
+      - name: Run Trivy filesystem scan (vuln scanner only)
+        run: |
+          trivy fs --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --skip-dirs frontend/.next --format json --output trivy.json .
+      - name: Enforce Trivy policy (high/critical with explicit temporary allowlist)
+        run: |
+          node -e '
+          const fs=require("fs");
+          const report=JSON.parse(fs.readFileSync("trivy.json","utf8"));
+          const allow=new Set([
+            "GHSA-848J-6MX2-7J84",
+            "GHSA-9G9P-9GW9-JX7F",
+            "GHSA-H25M-26QC-WCJF",
+            "GHSA-GGV3-7P47-PFV8",
+            "GHSA-3X4C-7XQ6-9PQ8"
+          ]);
+          const bad=[];
+          for(const result of (report.Results||[])){
+            for(const vuln of (result.Vulnerabilities||[])){
+              const sev=String(vuln.Severity||"").toUpperCase();
+              if(sev!=="HIGH" && sev!=="CRITICAL") continue;
+              const id=String(vuln.VulnerabilityID||"").toUpperCase();
+              if(!allow.has(id)){
+                bad.push({target:result.Target,pkg:vuln.PkgName,id,sev,title:vuln.Title||""});
+              }
+            }
+          }
+          if(bad.length){
+            console.error("Unallowlisted Trivy HIGH/CRITICAL vulnerabilities detected:");
+            for(const v of bad){
+              console.error(`- ${v.target} :: ${v.pkg} :: ${v.id} (${v.sev}) ${v.title}`);
+            }
+            process.exit(1);
+          }
+          console.log("Trivy policy passed (only allowlisted high findings present, if any).");
+          '

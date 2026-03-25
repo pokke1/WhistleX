@@ -1,12 +1,13 @@
 import express, { Request, Response } from "express";
+import { isAddress } from "ethers";
 import { supabase } from "../db/supabase.js";
 
 const router = express.Router();
 
 router.get("/:address", async (req: Request, res: Response) => {
   const rawAddress = req.params?.address;
-  if (!rawAddress) {
-    return res.status(400).json({ error: "address is required" });
+  if (!rawAddress || !isAddress(rawAddress)) {
+    return res.status(400).json({ error: "valid address is required" });
   }
   const address = rawAddress.toLowerCase();
 
