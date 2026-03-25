@@ -1,4 +1,4 @@
-import { BigNumber, Contract, providers, utils } from "ethers";
+import { BrowserProvider, Contract, Interface, getBytes, parseUnits } from "ethers";
 import { getActiveProvider } from "./wallet";
 
 const factoryAbi = [
@@ -37,8 +37,8 @@ export interface CreatePoolOnchainParams {
   ciphertext: string;
 }
 
-const AMOY_CHAIN_ID_DEC = 80002;
-const AMOY_CHAIN_ID_HEX = '0x13882'; 
+const AMOY_CHAIN_ID_DEC = BigInt(80002);
+const AMOY_CHAIN_ID_HEX = "0x13882";
 
 const DEFAULT_USDC_DECIMALS = Number(process.env.NEXT_PUBLIC_USDC_DECIMALS || "6");
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
@@ -55,7 +55,7 @@ export interface PoolOnchainState {
   canDecrypt?: boolean;
 }
 
-async function ensureAmoyNetwork(ethereum: any, provider: providers.Web3Provider) {
+async function ensureAmoyNetwork(ethereum: any, provider: BrowserProvider) {
   let { chainId } = await provider.getNetwork();
 
   if (chainId !== AMOY_CHAIN_ID_DEC) {
@@ -117,20 +117,20 @@ export async function createPoolOnchain(params: CreatePoolOnchainParams) {
     throw new Error("NEXT_PUBLIC_FACTORY_ADDRESS is not configured");
   }
 
-  const provider = new providers.Web3Provider(ethereum);
+  const provider = new BrowserProvider(ethereum);
   await ensureAmoyNetwork(ethereum, provider);
-  const signer = provider.getSigner();
+  const signer = await provider.getSigner();
 
   const decimals = DEFAULT_USDC_DECIMALS;
-  const threshold = utils.parseUnits(params.threshold, decimals);
-  const minContribution = utils.parseUnits(params.minContributionForDecrypt, decimals);
-  const ciphertext = utils.arrayify(normalizeHex(params.ciphertext));
-  const deadline = BigNumber.from(params.deadline);
+  const threshold = parseUnits(params.threshold, decimals);
+  const minContribution = parseUnits(params.minContributionForDecrypt, decimals);
+  const ciphertext = getBytes(normalizeHex(params.ciphertext));
+  const deadline = BigInt(params.deadline);
 
   const factory = new Contract(factoryAddress, factoryAbi, signer);
   const tx = await factory.createPool(threshold, minContribution, deadline, ciphertext);
   const receipt = await tx.wait();
-  const iface = new utils.Interface(factoryAbi);
+  const iface = new Interface(factoryAbi);
 
   let poolAddress = "";
   for (const log of receipt?.logs || []) {
@@ -146,7 +146,7 @@ export async function createPoolOnchain(params: CreatePoolOnchainParams) {
 
   if (!poolAddress) {
     const count = await factory.poolsCount();
-    poolAddress = await factory.allPools(count.sub(1));
+    poolAddress = await factory.allPools(count - BigInt(1));
   }
 
   return { poolAddress, investigator: await signer.getAddress(), txHash: receipt?.hash };
@@ -189,20 +189,20 @@ export async function contributeToPool(poolAddress: string, amountTokens: string
     throw new Error("Wallet provider not found. Please install MetaMask, Phantom, or another EVM wallet.");
   }
 
-  const provider = new providers.Web3Provider(ethereum);
+  const provider = new BrowserProvider(ethereum);
   await ensureAmoyNetwork(ethereum, provider);
 
-  const signer = provider.getSigner();
+  const signer = await provider.getSigner();
   const pool = new Contract(poolAddress, poolAbi, signer);
   const [currencyAddress, decimals] = await Promise.all([pool.currency(), pool.currencyDecimals()]);
   const decimalsNumber = Number(decimals);
   const normalizedDecimals = Number.isFinite(decimalsNumber) ? decimalsNumber : DEFAULT_USDC_DECIMALS;
-  const parsedAmount = utils.parseUnits(amountTokens, normalizedDecimals);
+  const parsedAmount = parseUnits(amountTokens, normalizedDecimals);
   const erc20 = new Contract(currencyAddress, erc20Abi, signer);
   const owner = await signer.getAddress();
-  const allowance: BigNumber = await erc20.allowance(owner, poolAddress);
+  const allowance = await erc20.allowance(owner, poolAddress);
 
-  if (allowance.lt(parsedAmount)) {
+  if (allowance < parsedAmount) {
     const approveTx = await erc20.approve(poolAddress, parsedAmount);
     await approveTx.wait();
   }
@@ -222,10 +222,10 @@ export async function claimRefund(poolAddress: string) {
     throw new Error("Wallet provider not found. Please install MetaMask, Phantom, or another EVM wallet.");
   }
 
-  const provider = new providers.Web3Provider(ethereum);
+  const provider = new BrowserProvider(ethereum);
   await ensureAmoyNetwork(ethereum, provider);
 
-  const signer = provider.getSigner();
+  const signer = await provider.getSigner();
   const pool = new Contract(poolAddress, poolAbi, signer);
 
   const tx = await pool.refund();
@@ -243,10 +243,10 @@ export async function claimPoolFunds(poolAddress: string) {
     throw new Error("Wallet provider not found. Please install MetaMask, Phantom, or another EVM wallet.");
   }
 
-  const provider = new providers.Web3Provider(ethereum);
+  const provider = new BrowserProvider(ethereum);
   await ensureAmoyNetwork(ethereum, provider);
 
-  const signer = provider.getSigner();
+  const signer = await provider.getSigner();
   const pool = new Contract(poolAddress, poolAbi, signer);
 
   const tx = await pool.withdraw();

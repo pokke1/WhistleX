@@ -1,4 +1,4 @@
-import { Contract, providers, utils, Wallet, BigNumber } from "ethers";
+import { Contract, JsonRpcProvider, Wallet, Interface, parseUnits, toUtf8Bytes, hexlify, keccak256, type TransactionRequest, type TransactionReceipt } from "ethers";
 import { encryptWithTaco, decryptWithTaco } from "./taco";
 
 
@@ -45,26 +45,27 @@ export async function runTacoTestFlow(): Promise<TacoTestResult> {
     throw new Error("Developer key not configured");
   }
 
-  const provider = new providers.JsonRpcProvider(rpcUrl);
+  const provider = new JsonRpcProvider(rpcUrl);
   const wallet = new Wallet(developerKey, provider);
   const contributorAddress = await wallet.getAddress();
 
-  const threshold = BigNumber.from(1); // 1 wei to keep the threshold extremely low for testing
-  const minContribution = BigNumber.from(1);
-  const deadline = BigNumber.from(Math.floor(Date.now() / 1000) + 60 * 60); // 1 hour from now
-  const ciphertext = utils.hexlify(utils.toUtf8Bytes(`debug intel ${Date.now()}`));
+  const threshold = BigInt(1); // 1 wei to keep the threshold extremely low for testing
+  const minContribution = BigInt(1);
+  const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 60); // 1 hour from now
+  const ciphertext = hexlify(toUtf8Bytes(`debug intel ${Date.now()}`));
 
   // Ensure we meet Amoy minimum tip (>= 25 gwei) to avoid underpriced tx errors.
   const feeData = await provider.getFeeData();
-  const minPriorityFee = utils.parseUnits("25", "gwei");
-  const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas?.lt(minPriorityFee)
-    ? minPriorityFee
-    : feeData.maxPriorityFeePerGas || minPriorityFee;
-  const baseForMax = feeData.lastBaseFeePerGas || feeData.gasPrice || minPriorityFee;
-  const maxFeePerGas = baseForMax.mul(2).add(maxPriorityFeePerGas); // cushion for spikes
+  const minPriorityFee = parseUnits("25", "gwei");
+  const maxPriorityFeePerGas =
+    feeData.maxPriorityFeePerGas != null && feeData.maxPriorityFeePerGas < minPriorityFee
+      ? minPriorityFee
+      : feeData.maxPriorityFeePerGas ?? minPriorityFee;
+  const baseForMax = feeData.maxFeePerGas ?? feeData.gasPrice ?? minPriorityFee;
+  const maxFeePerGas = baseForMax + maxPriorityFeePerGas; // cushion for spikes
 
   const factory = new Contract(factoryAddress, factoryAbi, wallet);
-  const createTxRequest = await factory.populateTransaction.createPool(
+  const createTxRequest = await factory.createPool.populateTransaction(
     threshold,
     minContribution,
     deadline,
@@ -76,7 +77,7 @@ export async function runTacoTestFlow(): Promise<TacoTestResult> {
     maxFeePerGas
   });
 
-  const iface = new utils.Interface(factoryAbi);
+  const iface = new Interface(factoryAbi);
   const poolAddress = factoryReceipt.logs
     .map((log) => {
       try {
@@ -110,7 +111,7 @@ export async function runTacoTestFlow(): Promise<TacoTestResult> {
   }
 
   const pool = new Contract(poolAddress, intelPoolAbi, wallet);
-  const contributeTxRequest = await pool.populateTransaction.contribute({ value: threshold });
+  const contributeTxRequest = await pool.contribute.populateTransaction({ value: threshold });
   const { receipt: contributeReceipt, hash: contributionTxHash } = await sendWithKnownHash(wallet, {
     ...contributeTxRequest,
     maxPriorityFeePerGas,
@@ -140,14 +141,14 @@ export async function runTacoTestFlow(): Promise<TacoTestResult> {
 
 async function sendWithKnownHash(
   wallet: Wallet,
-  tx: providers.TransactionRequest
-): Promise<{ hash: string; receipt: providers.TransactionReceipt }> {
+  tx: TransactionRequest
+): Promise<{ hash: string; receipt: TransactionReceipt }> {
   const populated = await wallet.populateTransaction(tx);
   const signed = await wallet.signTransaction(populated);
-  const hash = utils.keccak256(signed);
+  const hash = keccak256(signed);
 
   try {
-    await wallet.provider!.sendTransaction(signed);
+    await wallet.provider!.broadcastTransaction(signed);
   } catch (err: any) {
     const msg = err?.message || "";
     if (!msg.toLowerCase().includes("already known")) {

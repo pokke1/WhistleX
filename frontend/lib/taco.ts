@@ -1,4 +1,4 @@
-import { providers, Wallet } from "ethers";
+import { BrowserProvider, JsonRpcProvider, Wallet, getAddress } from "ethers";
 import { bytesToHex } from "./symmetricCrypto";
 
 import { DEFAULT_POLYGON_AMOY_RPC_URL, DEFAULT_TACO_RITUAL_ID } from "../../shared/testnet";
@@ -50,9 +50,9 @@ function resolveTacoConfig({
   return { key, dkg, condition, conditionChain, ritual };
 }
 
-async function resolveConditionSigner(conditionProvider: providers.JsonRpcProvider, key?: string) {
+async function resolveConditionSigner(conditionProvider: JsonRpcProvider, key?: string) {
   if (typeof window !== "undefined" && (window as any).ethereum) {
-    const injected = new providers.Web3Provider((window as any).ethereum);
+    const injected = new BrowserProvider((window as any).ethereum);
     await injected.send("eth_requestAccounts", []);
     return injected.getSigner();
   }
@@ -174,8 +174,8 @@ export async function encryptWithTaco({
 
   await initialize();
 
-  const dkgProvider = new providers.JsonRpcProvider(dkg);
-  const conditionProvider = new providers.JsonRpcProvider(
+  const dkgProvider = new JsonRpcProvider(dkg);
+  const conditionProvider = new JsonRpcProvider(
     condition || DEFAULT_POLYGON_AMOY_RPC_URL
   );
   const encryptorSigner = await resolveConditionSigner(conditionProvider, key);
@@ -286,7 +286,7 @@ export async function decryptWithTaco({
 
   await initialize();
 
-  const conditionProvider = new providers.JsonRpcProvider(
+  const conditionProvider = new JsonRpcProvider(
     condition || DEFAULT_POLYGON_AMOY_RPC_URL
   );
   const decryptorSigner = await resolveConditionSigner(conditionProvider, key);
@@ -299,7 +299,7 @@ export async function decryptWithTaco({
   context.addCustomContextParameterValues({
     // TACo nodes require checksum addresses; sanitize with ethers utils
     ":contributor": contributorAddress
-      ? (await import("ethers")).utils.getAddress(contributorAddress)
+      ? getAddress(contributorAddress)
       : decryptorAddress
   });
 

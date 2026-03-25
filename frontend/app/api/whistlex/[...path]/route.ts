@@ -25,18 +25,20 @@ async function proxy(req: Request, params: { path?: string[] }) {
   return new Response(body, { status: upstream.status, headers });
 }
 
-export async function GET(req: Request, context: { params: { path?: string[] } }) {
-  return proxy(req, context.params);
+type RouteContext = { params: Promise<{ path?: string[] }> };
+
+export async function GET(req: Request, context: RouteContext) {
+  return proxy(req, await context.params);
 }
-export async function POST(req: Request, context: { params: { path?: string[] } }) {
-  return proxy(req, context.params);
+export async function POST(req: Request, context: RouteContext) {
+  return proxy(req, await context.params);
 }
-export async function PUT(req: Request, context: { params: { path?: string[] } }) {
-  return proxy(req, context.params);
+export async function PUT(req: Request, context: RouteContext) {
+  return proxy(req, await context.params);
 }
-export async function PATCH(req: Request, context: { params: { path?: string[] } }) {
-  return proxy(req, context.params);
+export async function PATCH(req: Request, context: RouteContext) {
+  return proxy(req, await context.params);
 }
-export async function DELETE(req: Request, context: { params: { path?: string[] } }) {
-  return proxy(req, context.params);
+export async function DELETE(req: Request, context: RouteContext) {
+  return proxy(req, await context.params);
 }
