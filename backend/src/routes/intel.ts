@@ -1,14 +1,23 @@
 import express, { Request, Response } from "express";
+import { z } from "zod";
 import { supabase } from "../db/supabase.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 
 const router = express.Router();
 
+const postIntelSchema = z.object({
+  poolId: z.string().min(1),
+  ciphertext: z.string().min(1),
+  messageKit: z.string().min(1)
+});
+
 router.post("/", requireAuth, async (req: Request, res: Response) => {
-  const { poolId, ciphertext, messageKit } = req.body;
-  if (!poolId || !ciphertext || !messageKit) {
+  const parsed = postIntelSchema.safeParse(req.body || {});
+  if (!parsed.success) {
     return res.status(400).json({ error: "poolId, ciphertext and messageKit are required" });
   }
+
+  const { poolId, ciphertext, messageKit } = parsed.data;
 
   const { error } = await supabase
     .from("intel_blobs")
@@ -21,7 +30,11 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
 });
 
 router.get("/:poolId", async (req: Request, res: Response) => {
-  const { poolId } = req.params as { poolId?: string };
+  const poolId = String(req.params?.poolId || "").trim();
+  if (!poolId) {
+    return res.status(400).json({ error: "poolId is required" });
+  }
+
   const { data, error } = await supabase
     .from("intel_blobs")
     .select("ciphertext, messagekit")
