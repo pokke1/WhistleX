@@ -1,0 +1,8 @@
+# Build outputs and generated artifacts
+frontend/.next/**
+
+# Generated contract artifacts
+contracts/artifacts/**
+contracts/typechain-types/**
+contracts/cache/**
+backend/contracts/**
