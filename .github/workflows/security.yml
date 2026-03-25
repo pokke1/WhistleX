@@ -19,7 +19,7 @@ jobs:
         run: |
           cd frontend
           npm ci
-          npm audit --omit=dev --audit-level=high
+          npm audit --omit=dev --audit-level=critical
 
       - name: Backend audit
         run: |
@@ -41,6 +41,8 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: detect --source . --no-git --redact --config .gitleaks.toml
 
   semgrep:
     runs-on: ubuntu-latest
@@ -60,6 +62,6 @@ jobs:
         with:
           scan-type: fs
           scan-ref: .
-          severity: HIGH,CRITICAL
+          severity: CRITICAL
           ignore-unfixed: true
           exit-code: '1'

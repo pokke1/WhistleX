@@ -1,0 +1,20 @@
+title = "WhistleX gitleaks config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Ignore generated contract artifacts and frontend build cache"
+paths = [
+  '''^contracts/artifacts/''',
+  '''^contracts/typechain-types/''',
+  '''^contracts/cache/''',
+  '''^backend/contracts/''',
+  '''^frontend/\.next/'''
+]
+
+[[allowlists]]
+description = "Allow placeholder private key documentation token"
+regexes = [
+  '''<your-private-key>'''
+]
