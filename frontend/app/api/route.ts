@@ -10,7 +10,8 @@ const index = {
   routes: {
     auth: {
       nonce: "GET /api/whistlex/auth/nonce?address=0x...",
-      verify: "POST /api/whistlex/auth/verify { address, signature }"
+      verify: "POST /api/whistlex/auth/verify { address, signature }",
+      note: "Mutating routes require Bearer token from wallet signature auth"
     },
     pools: {
       list: "GET /api/whistlex/pools",

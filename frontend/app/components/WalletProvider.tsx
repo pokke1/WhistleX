@@ -8,6 +8,7 @@ import {
   setActiveProvider,
   type WalletOption
 } from "../../lib/wallet";
+import { authenticateWallet, clearAuthToken } from "../../lib/api";
 
 interface WalletContextValue {
   walletAddress: string | null;
@@ -63,7 +64,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       .catch(() => {});
 
     const handleAccountsChanged = (accounts: string[]) => {
-      setWalletAddress(accounts?.[0] || null);
+      const next = accounts?.[0] || null;
+      setWalletAddress(next);
+      if (!next) {
+        clearAuthToken();
+      }
     };
 
     provider.on?.("accountsChanged", handleAccountsChanged);
@@ -111,6 +116,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         throw new Error("No account returned. Make sure you are using the wallet’s in-app browser and approve the connection.");
       }
       setWalletAddress(account);
+      await authenticateWallet(selection.provider, account);
       return account;
     } finally {
       setIsConnecting(false);
@@ -122,6 +128,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setWalletLabel(null);
     setActiveProviderId(null);
     setActiveProvider(null, null);
+    clearAuthToken();
   };
 
   const value = useMemo(

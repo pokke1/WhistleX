@@ -1,11 +1,7 @@
 import { providers, Wallet } from "ethers";
 import { bytesToHex } from "./symmetricCrypto";
 
-import {
-  DEFAULT_POLYGON_AMOY_RPC_URL,
-  DEFAULT_TACO_RITUAL_ID,
-  TESTNET_PRIVATE_KEY
-} from "../../shared/testnet";
+import { DEFAULT_POLYGON_AMOY_RPC_URL, DEFAULT_TACO_RITUAL_ID } from "../../shared/testnet";
 
 const DEFAULT_CONDITION_CHAIN_ID = 80002; // Polygon Amoy
 
@@ -18,10 +14,8 @@ interface EncryptWithTacoParams {
   conditionChainId?: number;
   ritualId?: number;
   messageKit?: string;
-  payload?: string | Uint8Array; // data to wrap (defaults to TACo private key)
+  payload?: string | Uint8Array; // data to wrap (defaults to signer address when omitted)
 }
-
-export const DEFAULT_TACO_PRIVATE_KEY = TESTNET_PRIVATE_KEY;
 
 function resolveTacoConfig({
   privateKey,
@@ -30,9 +24,7 @@ function resolveTacoConfig({
   conditionChainId,
   ritualId
 }: Partial<EncryptWithTacoParams>) {
-  const key =
-    privateKey ||
-    DEFAULT_TACO_PRIVATE_KEY;
+  const key = privateKey;
 
   const dkg =
     dkgRpcUrl ||
@@ -58,16 +50,16 @@ function resolveTacoConfig({
   return { key, dkg, condition, conditionChain, ritual };
 }
 
-async function resolveConditionSigner(
-  conditionProvider: providers.JsonRpcProvider,
-  key?: string
-) {
+async function resolveConditionSigner(conditionProvider: providers.JsonRpcProvider, key?: string) {
   if (typeof window !== "undefined" && (window as any).ethereum) {
     const injected = new providers.Web3Provider((window as any).ethereum);
     await injected.send("eth_requestAccounts", []);
     return injected.getSigner();
   }
-  return new Wallet(key || DEFAULT_TACO_PRIVATE_KEY, conditionProvider);
+  if (!key) {
+    throw new Error("Missing private key for non-browser TACo signer");
+  }
+  return new Wallet(key, conditionProvider);
 }
 
 function toHexString(bytes: Uint8Array) {

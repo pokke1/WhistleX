@@ -1,4 +1,5 @@
 const backend = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
+const AUTH_TOKEN_KEY = "whistlex:auth-token";
 
 export interface PoolPayload {
   id: string;
@@ -75,6 +76,70 @@ export interface PoolAttachment {
   createdAt?: string;
 }
 
+interface WalletSignerProvider {
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+}
+
+function getAuthToken() {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(AUTH_TOKEN_KEY);
+}
+
+function setAuthToken(token: string | null) {
+  if (typeof window === "undefined") return;
+  if (token) {
+    window.localStorage.setItem(AUTH_TOKEN_KEY, token);
+  } else {
+    window.localStorage.removeItem(AUTH_TOKEN_KEY);
+  }
+}
+
+export function clearAuthToken() {
+  setAuthToken(null);
+}
+
+function withAuthHeaders(base: HeadersInit = {}) {
+  const headers = new Headers(base);
+  const token = getAuthToken();
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+  return headers;
+}
+
+async function authJson(path: string, init?: RequestInit) {
+  const res = await fetch(`${backend}${path}`, {
+    ...init,
+    headers: withAuthHeaders(init?.headers)
+  });
+  if (!res.ok) {
+    let message = `request failed (${res.status})`;
+    try {
+      const body = await res.json();
+      if (body?.error) message = body.error;
+    } catch {}
+    throw new Error(message);
+  }
+  return res.json();
+}
+
+export async function authenticateWallet(provider: WalletSignerProvider, address: string) {
+  const challenge = await authJson(`/auth/nonce?address=${encodeURIComponent(address)}`);
+  const signature = (await provider.request({
+    method: "personal_sign",
+    params: [challenge.message, address]
+  })) as string;
+
+  const verified = await authJson("/auth/verify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ address, signature })
+  });
+
+  setAuthToken(String(verified.token || ""));
+  return verified;
+}
+
 export async function fetchPools() {
   const res = await fetch(`${backend}/pools`);
   if (!res.ok) throw new Error("failed to load pools");
@@ -82,36 +147,30 @@ export async function fetchPools() {
 }
 
 export async function createPool(payload: PoolPayload) {
-  const res = await fetch(`${backend}/pools`, {
+  return authJson(`/pools`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
-  if (!res.ok) throw new Error("failed to create pool");
-  return res.json();
 }
 
 export async function uploadPoolFiles(
   poolId: string,
   files: { name: string; type: string; size: number; data: string }[]
 ) {
-  const res = await fetch(`${backend}/pools/${poolId}/files`, {
+  return authJson(`/pools/${poolId}/files`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ files })
   });
-  if (!res.ok) throw new Error("failed to upload attachments");
-  return res.json();
 }
 
 export async function uploadIntel(body: { poolId: string; ciphertext: string; messageKit: string }) {
-  const res = await fetch(`${backend}/intel`, {
+  return authJson(`/intel`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
   });
-  if (!res.ok) throw new Error("failed to upload intel");
-  return res.json();
 }
 
 export async function fetchIntel(poolId: string) {
@@ -137,21 +196,12 @@ export async function fetchPoolVotes(poolId: string, voterAddress?: string): Pro
   return res.json();
 }
 
-export async function submitPoolVote(poolId: string, voterAddress: string, vote: 1 | -1): Promise<PoolVoteSummary> {
-  const res = await fetch(`${backend}/votes/pools/${poolId}`, {
+export async function submitPoolVote(poolId: string, _voterAddress: string, vote: 1 | -1): Promise<PoolVoteSummary> {
+  return authJson(`/votes/pools/${poolId}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ voterAddress, vote })
+    body: JSON.stringify({ vote })
   });
-  if (!res.ok) {
-    let message = "failed to submit vote";
-    try {
-      const body = await res.json();
-      if (body?.error) message = body.error;
-    } catch {}
-    throw new Error(message);
-  }
-  return res.json();
 }
 
 export async function fetchPoolContributors(poolId: string): Promise<{ poolId: string; contributors: PoolContributor[] }> {
@@ -175,12 +225,10 @@ export async function fetchPoolComments(poolId: string): Promise<{ poolId: strin
   return res.json();
 }
 
-export async function postPoolComment(poolId: string, author: string, message: string) {
-  const res = await fetch(`${backend}/pools/${poolId}/comments`, {
+export async function postPoolComment(poolId: string, _author: string, message: string) {
+  return authJson(`/pools/${poolId}/comments`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ author, message })
+    body: JSON.stringify({ message })
   });
-  if (!res.ok) throw new Error("failed to post comment");
-  return res.json();
 }

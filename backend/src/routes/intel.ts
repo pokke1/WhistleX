@@ -1,9 +1,10 @@
 import express, { Request, Response } from "express";
 import { supabase } from "../db/supabase.js";
+import { requireAuth } from "../middleware/requireAuth.js";
 
 const router = express.Router();
 
-router.post("/", async (req: Request, res: Response) => {
+router.post("/", requireAuth, async (req: Request, res: Response) => {
   const { poolId, ciphertext, messageKit } = req.body;
   if (!poolId || !ciphertext || !messageKit) {
     return res.status(400).json({ error: "poolId, ciphertext and messageKit are required" });

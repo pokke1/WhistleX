@@ -2,6 +2,7 @@ import express, { Request, Response } from "express";
 import { supabase } from "../db/supabase.js";
 import { buildCanonicalPolicy } from "../services/tacoPolicy.js";
 import { getCachedPoolState } from "../services/poolStateCache.js";
+import { requireAuth } from "../middleware/requireAuth.js";
 
 const router = express.Router();
 
@@ -169,9 +170,9 @@ router.get("/:poolId/comments", async (req: Request, res: Response) => {
   return res.json({ poolId, comments: data || [] });
 });
 
-router.post("/:poolId/comments", async (req: Request, res: Response) => {
+router.post("/:poolId/comments", requireAuth, async (req: Request, res: Response) => {
   const poolId = req.params?.poolId;
-  const author = String(req.body?.author || "").trim();
+  const author = String(req.auth?.address || "").trim().toLowerCase();
   const message = String(req.body?.message || "").trim();
   if (!poolId) {
     return res.status(400).json({ error: "poolId is required" });
@@ -192,12 +193,13 @@ router.post("/:poolId/comments", async (req: Request, res: Response) => {
   return res.json({ ok: true });
 });
 
-router.post("/", async (req: Request, res: Response) => {
-  const { id, investigator, threshold, minContributionForDecrypt, deadline, ciphertext, title, description } = req.body;
+router.post("/", requireAuth, async (req: Request, res: Response) => {
+  const { id, threshold, minContributionForDecrypt, deadline, ciphertext, title, description } = req.body;
+  const investigator = String(req.auth?.address || "").toLowerCase();
   if (!id || !investigator || !threshold || !minContributionForDecrypt || !deadline || !ciphertext) {
     return res
       .status(400)
-      .json({ error: "id, investigator, threshold, minContributionForDecrypt, deadline, ciphertext are required" });
+      .json({ error: "id, threshold, minContributionForDecrypt, deadline, ciphertext are required" });
   }
 
   const policy = buildCanonicalPolicy(id, minContributionForDecrypt);
@@ -224,7 +226,7 @@ router.post("/", async (req: Request, res: Response) => {
   return res.json({ id, investigator, threshold, minContributionForDecrypt, deadline, ciphertext, policy, title, description });
 });
 
-router.post("/:poolId/files", async (req: Request, res: Response) => {
+router.post("/:poolId/files", requireAuth, async (req: Request, res: Response) => {
   const poolId = req.params?.poolId;
   if (!poolId) {
     return res.status(400).json({ error: "poolId is required" });

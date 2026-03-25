@@ -16,7 +16,8 @@ npm install
 - `NEXT_PUBLIC_BACKEND_URL` (e.g., `http://localhost:4000`)
 - `NEXT_PUBLIC_FACTORY_ADDRESS` from your contract deployment
 - `NEXT_PUBLIC_USDC_ADDRESS` and optional `NEXT_PUBLIC_USDC_DECIMALS` (default 6) for the pool currency
-- TACo/testnet defaults to keep or override: `NEXT_PUBLIC_AMOY_RPC_URL`, `AMOY_RPC_URL`, `NEXT_PUBLIC_TACO_DKG_RPC_URL`, `NEXT_PUBLIC_TACO_CONDITION_CHAIN_ID`, `NEXT_PUBLIC_TACO_RITUAL_ID`, `NEXT_PUBLIC_DEVELOPER_KEY`
+- TACo/testnet defaults to keep or override: `NEXT_PUBLIC_AMOY_RPC_URL`, `AMOY_RPC_URL`, `NEXT_PUBLIC_TACO_DKG_RPC_URL`, `NEXT_PUBLIC_TACO_CONDITION_CHAIN_ID`, `NEXT_PUBLIC_TACO_RITUAL_ID`
+- If you run signer-based local test helpers, pass `DEVELOPER_KEY` only in local shell env (never `NEXT_PUBLIC_*`).
 
 3) Start the app:
 
@@ -29,4 +30,4 @@ Open `http://localhost:3000` in your browser.
 ## Notes
 
 - Uses `@nucypher/taco@0.6.0` with `ethers@5.7.2`; no extra install flags are needed.
-- `.env.example` points to Polygon Amoy and the shared demo key in `../shared/testnet.ts`. Replace these values for any real deployment.
+- `.env.example` contains public network defaults only. Keep secrets/private keys out of the repo and out of `NEXT_PUBLIC_*` variables.
