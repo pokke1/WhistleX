@@ -6,7 +6,7 @@ import { fetchIntel, fetchPoolCommentCounts, fetchPoolVotes, fetchPools, fetchPr
 import { claimPoolFunds, claimRefund, contributeToPool, fetchPoolState, PoolOnchainState } from "../lib/onchain";
 import { decryptWithTaco } from "../lib/taco";
 import { describePolicy } from "../lib/tacoClient";
-import { utils } from "ethers";
+import { formatUnits } from "ethers";
 import { decryptIntelWithKey, parseSymmetricKey } from "../lib/symmetricCrypto";
 import { parsePolymarketReference } from "../lib/polymarketRef";
 import { useWallet } from "./components/WalletProvider";
@@ -18,7 +18,7 @@ const DEFAULT_DECIMALS = Number(process.env.NEXT_PUBLIC_USDC_DECIMALS || "6");
 function formatAmount(value?: string, decimals: number = DEFAULT_DECIMALS) {
   if (!value) return "-";
   try {
-    return utils.formatUnits(value, decimals);
+    return formatUnits(value, decimals);
   } catch {
     return value;
   }
@@ -646,10 +646,10 @@ export default function HomePage() {
     const ratingText = `rgb(${Math.round(120 + ratingNormalized * 50)}, ${Math.round(
       120 + ratingNormalized * 90
     )}, ${Math.round(140 + ratingNormalized * 40)})`;
-    const thresholdValue = onchain ? Number(utils.formatUnits(onchain.threshold, decimals)) : Number(pool.threshold);
-    const raisedValue = onchain ? Number(utils.formatUnits(onchain.totalContributions, decimals)) : 0;
+    const thresholdValue = onchain ? Number(formatUnits(onchain.threshold, decimals)) : Number(pool.threshold);
+    const raisedValue = onchain ? Number(formatUnits(onchain.totalContributions, decimals)) : 0;
     const minContributionValue = onchain
-      ? Number(utils.formatUnits(onchain.minContributionForDecrypt, decimals))
+      ? Number(formatUnits(onchain.minContributionForDecrypt, decimals))
       : Number(pool.minContributionForDecrypt);
     const progressPercent =
       thresholdValue > 0 && Number.isFinite(raisedValue)

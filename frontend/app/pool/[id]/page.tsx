@@ -18,7 +18,7 @@ import { describePolicy } from "../../../lib/tacoClient";
 import { fetchPoolState, type PoolOnchainState } from "../../../lib/onchain";
 import { getAddressExplorerUrl, getTxExplorerUrl } from "../../../lib/explorer";
 import { parsePolymarketReference } from "../../../lib/polymarketRef";
-import { utils } from "ethers";
+import { formatUnits } from "ethers";
 import { useWallet } from "../../components/WalletProvider";
 
 const CURRENCY_SYMBOL = "USDC";
@@ -26,7 +26,7 @@ const DEFAULT_DECIMALS = Number(process.env.NEXT_PUBLIC_USDC_DECIMALS || "6");
 
 function formatAmount(value: string) {
   try {
-    return utils.formatUnits(value, DEFAULT_DECIMALS);
+    return formatUnits(value, DEFAULT_DECIMALS);
   } catch {
     return value;
   }
@@ -231,10 +231,10 @@ export default function PoolDetailPage() {
   const isOwnPool = Boolean(walletAddress && pool && walletAddress.toLowerCase() === pool.investigator.toLowerCase());
   const uiCanVote = Boolean(walletAddress && !isOwnPool && canDecrypt);
   const decimals = onchainState?.currencyDecimals ?? DEFAULT_DECIMALS;
-  const thresholdValue = onchainState ? Number(utils.formatUnits(onchainState.threshold, decimals)) : 0;
-  const raisedValue = onchainState ? Number(utils.formatUnits(onchainState.totalContributions, decimals)) : 0;
+  const thresholdValue = onchainState ? Number(formatUnits(onchainState.threshold, decimals)) : 0;
+  const raisedValue = onchainState ? Number(formatUnits(onchainState.totalContributions, decimals)) : 0;
   const minContributionValue = onchainState
-    ? Number(utils.formatUnits(onchainState.minContributionForDecrypt, decimals))
+    ? Number(formatUnits(onchainState.minContributionForDecrypt, decimals))
     : 0;
   const progressPercent =
     thresholdValue > 0 && Number.isFinite(raisedValue)

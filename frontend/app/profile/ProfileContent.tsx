@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { utils } from "ethers";
+import { formatUnits } from "ethers";
 import { fetchProfile, type PoolSummary, type ProfilePayload } from "../../lib/api";
 import { fetchPolymarketScorecard, type PolymarketScorecardData } from "../../lib/polymarket";
 
@@ -12,7 +12,7 @@ const DEFAULT_DECIMALS = Number(process.env.NEXT_PUBLIC_USDC_DECIMALS || "6");
 function formatAmount(value?: string, decimals: number = DEFAULT_DECIMALS) {
   if (!value) return "-";
   try {
-    return utils.formatUnits(value, decimals);
+    return formatUnits(value, decimals);
   } catch {
     return value;
   }

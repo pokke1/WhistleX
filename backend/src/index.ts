@@ -21,10 +21,14 @@ app.use(express.json({ limit: "10mb" }));
 app.use(morgan("dev"));
 app.use(helmet());
 
+const normalizeOrigin = (value: string) => value.trim().replace(/\/$/, "");
+
 const configuredOrigins = (process.env.FRONTEND_ORIGIN || "")
   .split(",")
-  .map((v) => v.trim())
+  .map((v) => normalizeOrigin(v))
   .filter(Boolean);
+
+const netlifyPreviewOriginRegex = /^https:\/\/deploy-preview-\d+--whistlex\.netlify\.app$/;
 
 if (configuredOrigins.length === 0 && process.env.NODE_ENV === "production") {
   throw new Error("FRONTEND_ORIGIN is required in production");
@@ -33,13 +37,18 @@ if (configuredOrigins.length === 0 && process.env.NODE_ENV === "production") {
 const corsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     if (!origin) return callback(null, true);
+    const normalizedIncomingOrigin = normalizeOrigin(origin);
+
     if (configuredOrigins.length === 0 && process.env.NODE_ENV !== "production") {
       return callback(null, true);
     }
-    if (configuredOrigins.includes(origin)) {
+    if (configuredOrigins.includes(normalizedIncomingOrigin)) {
       return callback(null, true);
     }
-    return callback(new Error("CORS blocked"));
+    if (netlifyPreviewOriginRegex.test(normalizedIncomingOrigin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`CORS blocked for origin: ${normalizedIncomingOrigin}`));
   },
   methods: ["GET", "POST", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
