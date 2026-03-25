@@ -28,6 +28,7 @@ services:
     command: sh -c "npm install && npm run dev"
     environment:
       - NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
+      - NPM_CONFIG_CACHE=/tmp/.npm
     ports:
       - "3000:3000"
     security_opt:
@@ -43,6 +44,8 @@ services:
     volumes:
       - ../contracts:/app/contracts
     command: sh -c "npm install && npx hardhat node --hostname 0.0.0.0"
+    environment:
+      - NPM_CONFIG_CACHE=/tmp/.npm
     ports:
       - "8545:8545"
     security_opt:
