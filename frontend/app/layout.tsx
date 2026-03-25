@@ -4,7 +4,10 @@ import AppNav from "./components/AppNav";
 import { TickerProvider } from "./components/TickerProvider";
 import { WalletProvider } from "./components/WalletProvider";
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://wstlx.com";
+
 export const metadata = {
+  metadataBase: new URL(siteUrl),
   title: "WhistleX",
   description: "The Trustless Intel Marketplace",
   openGraph: {
