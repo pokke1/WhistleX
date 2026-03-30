@@ -38,16 +38,37 @@ export default function DocsPage() {
 
         <div className="docs-body space-y-4">
           <section id="overview" className="panel space-y-2">
-            <h2 className="section-title">Overview</h2>
-            <p className="muted">
-              WhistleX lets you sell the intel itself, not a trade. This avoids market exposure for the whistleblower and lets
-              the buyer decide how to act. The platform uses on-chain escrow and TACo key sharding so neither party must trust
-              the other.
-            </p>
-            <p className="muted">
-              The key concept is that the intel is encrypted locally, the ciphertext is stored on-chain, and the decryption key
-              can only be reconstructed if on-chain conditions are met.
-            </p>
+            <h2 className="section-title">Value Proposition</h2>
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <h3 className="font-semibold">For Intel Sellers</h3>
+                <ul className="list-disc list-inside space-y-1 muted">
+                  <li>Monetize information without trading risk</li>
+                  <li>Maintain pseudonymity</li>
+                  <li>Get paid automatically when the pool unlocks</li>
+                  <li>Build a reputation based on past accuracy</li>
+                </ul>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-semibold">For Buyers</h3>
+                <ul className="list-disc list-inside space-y-1 muted">
+                  <li>Access high-signal intelligence before it becomes public</li>
+                  <li>Pay only if the intel unlocks</li>
+                  <li>Evaluate seller reputation and past performance</li>
+                  <li>Decide independently how to act on the information</li>
+                </ul>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-semibold">For Markets</h3>
+                <ul className="list-disc list-inside space-y-1 muted">
+                  <li>Makes informational asymmetry visible</li>
+                  <li>Creates informed consent among participants</li>
+                  <li>Reduces hidden advantages in trading</li>
+                </ul>
+              </div>
+            </div>
           </section>
 
           <section id="trust" className="panel space-y-2">
