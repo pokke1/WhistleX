@@ -17,7 +17,7 @@ npm install
 - `NEXT_PUBLIC_SITE_URL` (e.g., `https://wstlx.com`) for metadata/social URL resolution
 - `NEXT_PUBLIC_FACTORY_ADDRESS` from your contract deployment
 - `NEXT_PUBLIC_USDC_ADDRESS` and optional `NEXT_PUBLIC_USDC_DECIMALS` (default 6) for the pool currency
-- TACo/testnet defaults to keep or override: `NEXT_PUBLIC_AMOY_RPC_URL`, `AMOY_RPC_URL`, `NEXT_PUBLIC_TACO_DKG_RPC_URL`, `NEXT_PUBLIC_TACO_CONDITION_CHAIN_ID`, `NEXT_PUBLIC_TACO_RITUAL_ID`
+- Lit v6 defaults to keep or override: `NEXT_PUBLIC_AMOY_RPC_URL`, `NEXT_PUBLIC_LIT_NETWORK`, `NEXT_PUBLIC_LIT_EVM_CHAIN`, `NEXT_PUBLIC_LIT_SESSION_CHAIN`, `NEXT_PUBLIC_LIT_CHECK_NODE_ATTESTATION`, `NEXT_PUBLIC_LIT_DEBUG`
 - If you run signer-based local test helpers, pass `DEVELOPER_KEY` only in local shell env (never `NEXT_PUBLIC_*`).
 
 3) Start the app:

@@ -1,25 +1,37 @@
-export interface TacoContractClause {
-  contract: {
-    chain: string;
-    address: string;
-    function: string;
-    args: unknown[];
-    returnValue?: boolean;
-    comparator?: string;
-    value?: string;
-  };
-}
+type LegacyTacoPolicy = {
+  and?: Array<{
+    contract?: {
+      function?: string;
+      value?: string;
+      args?: unknown[];
+    };
+  }>;
+};
 
-export interface TacoPolicy {
-  and: [TacoContractClause, TacoContractClause];
-}
+type LitAccessPolicy = {
+  provider?: string;
+  version?: string;
+  conditions?: Array<{
+    functionName?: string;
+    chain?: string;
+    returnValueTest?: { comparator?: string; value?: string };
+  }>;
+};
 
-export function describePolicy(policy?: TacoPolicy | string | null) {
-  if (!policy) return "No TACo policy bound yet.";
+export function describePolicy(policy?: LegacyTacoPolicy | LitAccessPolicy | string | null) {
+  if (!policy) return "No access policy bound yet.";
 
-  const parsed: TacoPolicy = typeof policy === "string" ? (JSON.parse(policy) as TacoPolicy) : policy;
+  const parsed = (typeof policy === "string" ? JSON.parse(policy) : policy) as LegacyTacoPolicy & LitAccessPolicy;
+
+  if (parsed.conditions?.length) {
+    const condition = parsed.conditions[0];
+    const fn = condition?.functionName || "canDecrypt";
+    const chain = condition?.chain || "amoy";
+    return `Lit v6 policy: ${fn}(user) must return true on ${chain}.`;
+  }
+
   const unlockFn = parsed?.and?.[0]?.contract?.function || "isUnlocked";
   const contributionClause = parsed?.and?.[1]?.contract;
   const minContribution = contributionClause?.value || contributionClause?.args?.[1];
-  return `Unlocks when ${unlockFn} returns true and contribution >= ${minContribution || "threshold"}.`;
+  return `Legacy policy: ${unlockFn} must be true and contribution >= ${minContribution || "threshold"}.`;
 }

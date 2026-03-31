@@ -9,14 +9,14 @@ export default function TacoTestPage() {
   const [error, setError] = useState<string | null>(null);
 
   async function handleRun() {
-    setStatus("Running TACo test flow...");
+    setStatus("Running Lit test flow...");
     setError(null);
     setResult(null);
 
     try {
       const output = await runTacoTestFlow();
       setResult(output);
-      setStatus("Completed TACo flow.");
+      setStatus("Completed Lit flow.");
     } catch (err: any) {
       setStatus(null);
       setError(err?.message || "Failed to run flow");
@@ -25,14 +25,14 @@ export default function TacoTestPage() {
 
   return (
     <main className="p-8 space-y-4">
-      <h1 className="text-2xl font-semibold">TACo request test harness</h1>
+      <h1 className="text-2xl font-semibold">Lit request test harness</h1>
       <p className="text-sm text-gray-700 max-w-3xl">
-        This helper spins up a fresh IntelPool with an extremely low threshold, retrieves the TACo message kit, and validates
+        This helper spins up a fresh IntelPool with an extremely low threshold, retrieves the Lit encrypted key blob, and validates
         decryption before and after the contribution threshold is reached using the developer key configured in the environment.
       </p>
 
       <button className="bg-blue-600 text-white px-4 py-2 rounded" onClick={handleRun}>
-        Run TACo flow
+        Run Lit flow
       </button>
 
       {status && <p className="text-sm text-gray-800">{status}</p>}
