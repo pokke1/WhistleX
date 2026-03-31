@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createPool, uploadIntel, uploadPoolFiles } from "../../lib/api";
 import { createPoolOnchain, normalizeHex } from "../../lib/onchain";
-import { buildTacoCondition, encryptWithTaco } from "../../lib/taco";
+import { buildLitEvmContractConditions, encryptWithLit } from "../../lib/lit";
 import SymmetricEncryptor from "./SymmetricEncryptor";
 
 function toUnixTimestamp(input: string) {
@@ -144,15 +144,14 @@ function CreatePoolPageContent() {
 
       setPoolId(onchain.poolAddress);
       setInvestigator(onchain.investigator);
-      setStatus("Encrypting DEK with TACo...");
+      setStatus("Encrypting DEK with Lit...");
 
-      const kit = await encryptWithTaco({
+      const kit = await encryptWithLit({
         poolAddress: onchain.poolAddress,
-        minContributionForDecrypt: minContribution,
-        payload: intelKey // wrap the symmetric key with TACo
+        payload: intelKey // wrap the symmetric key with Lit
       });
 
-      const policy = buildTacoCondition(onchain.poolAddress, minContribution);
+      const policy = buildLitEvmContractConditions(onchain.poolAddress);
       setMessageKit(kit);
 
       const finalDescription = [userDescription.trim(), description.trim()].filter(Boolean).join("\n\n");
@@ -182,7 +181,7 @@ function CreatePoolPageContent() {
 
       await uploadIntel({ poolId: onchain.poolAddress, ciphertext: normalizedCipher, messageKit: kit });
 
-      setStatus("Pool created, attachments stored, TACo policy recorded, and intel stored");
+      setStatus("Pool created, attachments stored, Lit policy recorded, and intel stored");
       console.log("Stored policy", policy);
     } catch (err: any) {
       setStatus(err.message || "Failed to create pool");

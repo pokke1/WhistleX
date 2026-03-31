@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { fetchIntel, fetchPoolCommentCounts, fetchPoolVotes, fetchPools, fetchProfile } from "../lib/api";
 import { claimPoolFunds, claimRefund, contributeToPool, fetchPoolState, PoolOnchainState } from "../lib/onchain";
-import { decryptWithTaco } from "../lib/taco";
+import { decryptWithLit } from "../lib/lit";
 import { describePolicy } from "../lib/tacoClient";
 import { formatUnits } from "ethers";
 import { decryptIntelWithKey, parseSymmetricKey } from "../lib/symmetricCrypto";
@@ -529,7 +529,7 @@ export default function HomePage() {
 
   async function handleDecrypt(pool: Pool) {
     const account = await ensureWalletAddress().catch((err) => {
-      setStatusByPool((prev) => ({ ...prev, [pool.id]: err?.message || "Wallet required for TACo decryption" }));
+      setStatusByPool((prev) => ({ ...prev, [pool.id]: err?.message || "Wallet required for Lit decryption" }));
       return null;
     });
     if (!account) return;
@@ -549,16 +549,14 @@ export default function HomePage() {
       setStatusByPool((prev) => ({ ...prev, [pool.id]: "Contribution below decrypt minimum" }));
       return;
     }
-    setStatusByPool((prev) => ({ ...prev, [pool.id]: "Requesting decryption from TACo..." }));
+    setStatusByPool((prev) => ({ ...prev, [pool.id]: "Requesting decryption from Lit..." }));
     try {
-      const plaintext = await decryptWithTaco({
-        poolAddress: pool.id,
-        minContributionForDecrypt: pool.minContributionForDecrypt,
-        messageKit: intel.messageKit,
+      const plaintext = await decryptWithLit({
+        encryptedKeyBlob: intel.messageKit,
         contributorAddress: account
       });
       setDecryptedByPool((prev) => ({ ...prev, [pool.id]: plaintext }));
-      setStatusByPool((prev) => ({ ...prev, [pool.id]: "Decrypted with TACo" }));
+      setStatusByPool((prev) => ({ ...prev, [pool.id]: "Decrypted with Lit" }));
     } catch (err: any) {
       setStatusByPool((prev) => ({ ...prev, [pool.id]: err.message || "Failed to decrypt" }));
     }
