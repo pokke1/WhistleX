@@ -10,6 +10,7 @@ import profilesRouter from "./routes/profiles.js";
 import votesRouter from "./routes/votes.js";
 import polymarketRouter from "./routes/polymarket.js";
 import authRouter from "./routes/auth.js";
+import litRouter from "./routes/lit.js";
 import { startIndexer } from "./services/indexer.js";
 
 dotenv.config();
@@ -105,6 +106,7 @@ app.use("/intel", intelRouter);
 app.use("/profiles", profilesRouter);
 app.use("/votes", votesRouter);
 app.use("/polymarket", polymarketRouter);
+app.use("/lit", litRouter);
 
 const port = Number.parseInt(process.env.PORT ?? "8080", 10);
 

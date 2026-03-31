@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { fetchIntel, fetchPoolCommentCounts, fetchPoolVotes, fetchPools, fetchProfile } from "../lib/api";
+import { authenticateWallet, ensureAuthenticatedWallet, fetchIntel, fetchPoolCommentCounts, fetchPoolVotes, fetchPools, fetchProfile, hasAuthToken } from "../lib/api";
 import { claimPoolFunds, claimRefund, contributeToPool, fetchPoolState, PoolOnchainState } from "../lib/onchain";
 import { decryptWithLit } from "../lib/lit";
 import { describePolicy } from "../lib/tacoClient";
@@ -551,7 +551,15 @@ export default function HomePage() {
     }
     setStatusByPool((prev) => ({ ...prev, [pool.id]: "Requesting decryption from Lit..." }));
     try {
+      if (!hasAuthToken()) {
+        const provider = (window as any)?.ethereum;
+        if (provider) {
+          await ensureAuthenticatedWallet(provider, account);
+        }
+      }
+
       const plaintext = await decryptWithLit({
+        poolAddress: pool.id,
         encryptedKeyBlob: intel.messageKit,
         contributorAddress: account
       });
