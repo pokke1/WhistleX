@@ -2,7 +2,7 @@ import express, { Request, Response } from "express";
 import { z } from "zod";
 import { fileTypeFromBuffer } from "file-type";
 import { supabase } from "../db/supabase.js";
-import { buildCanonicalPolicy } from "../services/tacoPolicy.js";
+import { buildCanonicalPolicy } from "../services/accessPolicy.js";
 import { getCachedPoolState } from "../services/poolStateCache.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 
@@ -227,7 +227,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
   }
   const { id, threshold, minContributionForDecrypt, deadline, ciphertext, title, description } = parsed.data;
 
-  const policy = buildCanonicalPolicy(id, minContributionForDecrypt);
+  const policy = buildCanonicalPolicy(id);
   const { error } = await supabase
     .from("pools")
     .upsert(

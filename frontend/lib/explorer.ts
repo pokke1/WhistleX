@@ -2,7 +2,7 @@ const POLYGON_MAINNET_CHAIN_ID = 137;
 const POLYGON_AMOY_CHAIN_ID = 80002;
 
 function getChainId() {
-  const fromEnv = process.env.NEXT_PUBLIC_CHAIN_ID || process.env.NEXT_PUBLIC_TACO_CONDITION_CHAIN_ID || "80002";
+  const fromEnv = process.env.NEXT_PUBLIC_CHAIN_ID || "80002";
   const parsed = Number(fromEnv);
   return Number.isFinite(parsed) ? parsed : POLYGON_AMOY_CHAIN_ID;
 }

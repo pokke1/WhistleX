@@ -1,5 +1,5 @@
 import { Contract, JsonRpcProvider, Wallet, Interface, parseUnits, toUtf8Bytes, hexlify, keccak256, type TransactionRequest, type TransactionReceipt } from "ethers";
-import { encryptWithTaco, decryptWithTaco } from "./taco";
+import { encryptWithLit, decryptWithLit } from "./lit";
 
 
 const factoryAbi = [
@@ -94,17 +94,15 @@ export async function runTacoTestFlow(): Promise<TacoTestResult> {
     throw new Error("Failed to detect pool address from factory event");
   }
 
-  const messageKit = await encryptWithTaco({
+  const messageKit = await encryptWithLit({
     poolAddress,
-    minContributionForDecrypt: minContribution.toString()
+    payload: `lit-test-${Date.now()}`
   });
 
   let initialDecryptError: string | undefined;
   try {
-    await decryptWithTaco({
-      poolAddress,
-      minContributionForDecrypt: minContribution.toString(),
-      messageKit
+    await decryptWithLit({
+      encryptedKeyBlob: messageKit
     });
   } catch (err: any) {
     initialDecryptError = err?.message || String(err);
@@ -119,10 +117,8 @@ export async function runTacoTestFlow(): Promise<TacoTestResult> {
   });
 
   const unlockedAfterContribute = await pool.isUnlocked();
-  const messageKitPlaintext = await decryptWithTaco({
-    poolAddress,
-    minContributionForDecrypt: minContribution.toString(),
-    messageKit
+  const messageKitPlaintext = await decryptWithLit({
+    encryptedKeyBlob: messageKit
   });
 
   return {
