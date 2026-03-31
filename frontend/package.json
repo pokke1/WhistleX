@@ -8,7 +8,12 @@
     "start": "next start"
   },
   "dependencies": {
-    "@nucypher/taco": "0.6.0",
+    "@lit-protocol/auth-browser": "6.11.5",
+    "@lit-protocol/auth-helpers": "6.11.5",
+    "@lit-protocol/constants": "6.11.5",
+    "@lit-protocol/encryption": "6.11.5",
+    "@lit-protocol/lit-node-client": "6.11.5",
+    "@lit-protocol/lit-node-client-nodejs": "6.11.5",
     "ethers": "^6.16.0",
     "next": "^15.5.14",
     "react": "^18.3.1",
