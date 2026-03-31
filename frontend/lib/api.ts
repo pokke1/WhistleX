@@ -98,10 +98,6 @@ export function clearAuthToken() {
   setAuthToken(null);
 }
 
-export function hasAuthToken() {
-  return Boolean(getAuthToken());
-}
-
 function withAuthHeaders(base: HeadersInit = {}) {
   const headers = new Headers(base);
   const token = getAuthToken();
@@ -144,11 +140,6 @@ export async function authenticateWallet(provider: WalletSignerProvider, address
   return verified;
 }
 
-export async function ensureAuthenticatedWallet(provider: WalletSignerProvider, address: string) {
-  if (hasAuthToken()) return;
-  await authenticateWallet(provider, address);
-}
-
 export async function fetchPools() {
   const res = await fetch(`${backend}/pools`);
   if (!res.ok) throw new Error("failed to load pools");
@@ -176,22 +167,6 @@ export async function uploadPoolFiles(
 
 export async function uploadIntel(body: { poolId: string; ciphertext: string; messageKit: string }) {
   return authJson(`/intel`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  });
-}
-
-export async function litEncryptKey(body: { poolAddress: string; payload: string }) {
-  return authJson(`/lit/encrypt-key`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  });
-}
-
-export async function litDecryptKey(body: { poolAddress: string; encryptedKeyBlob: string }) {
-  return authJson(`/lit/decrypt-key`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)

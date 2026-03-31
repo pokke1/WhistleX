@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { createPool, ensureAuthenticatedWallet, uploadIntel, uploadPoolFiles } from "../../lib/api";
+import { createPool, uploadIntel, uploadPoolFiles } from "../../lib/api";
 import { createPoolOnchain, normalizeHex } from "../../lib/onchain";
 import { buildLitEvmContractConditions, encryptWithLit } from "../../lib/lit";
 import SymmetricEncryptor from "./SymmetricEncryptor";
@@ -145,11 +145,6 @@ function CreatePoolPageContent() {
       setPoolId(onchain.poolAddress);
       setInvestigator(onchain.investigator);
       setStatus("Encrypting DEK with Lit...");
-
-      const provider = (window as any)?.ethereum;
-      if (provider) {
-        await ensureAuthenticatedWallet(provider, onchain.investigator);
-      }
 
       const kit = await encryptWithLit({
         poolAddress: onchain.poolAddress,
